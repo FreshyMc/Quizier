@@ -16,8 +16,6 @@ Build a turn-based multiplayer quiz game with real-time gameplay via Socket.IO. 
   - `packages/server` — Fastify back-end
   - `packages/client` — React front-end
   - `packages/shared` — Shared TypeScript types, Zod schemas, socket event contracts, enums
-- Move and convert the existing `index.js` and `db/db-connector.js` into `packages/server/src/` as `.ts` files, preserving the Fastify plugin pattern already in use
-- Delete the old root-level `index.js`, `routes/`, `db/` once migrated
 
 **0.2 — Configure TypeScript**
 
