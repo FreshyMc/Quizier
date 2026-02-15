@@ -28,6 +28,7 @@ export type GamePlayer = {
 };
 
 export type GameSessionDto = {
+  id: string;
   roomCode: string;
   hostId: string;
   status: GameStatus;

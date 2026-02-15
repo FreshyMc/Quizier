@@ -6,6 +6,7 @@ import {
   type Dispatch,
   type PropsWithChildren,
 } from 'react';
+import { GameStatus } from '@shared/enums';
 import type { GameSessionDto } from '../types/app';
 import { useSocketEvent } from '../hooks/useSocketEvent';
 import { useAuth } from './AuthContext';
@@ -29,7 +30,7 @@ type GameState = {
 
 type Action =
   | { type: 'SET_GAME_STATE'; payload: GameSessionDto }
-  | { type: 'TURN_START'; payload: { question: GameQuestion; turnPlayerId: string } }
+  | { type: 'TURN_START'; payload: { question: GameQuestion; isMyTurn: boolean } }
   | {
       type: 'TURN_RESULT';
       payload: { scores: Array<{ userId: string; score: number }> };
@@ -72,21 +73,39 @@ function reducer(state: GameState, action: Action): GameState {
       return {
         ...state,
         currentQuestion: action.payload.question,
-        myTurn:
-          state.gameSession?.players[state.gameSession.currentTurnPlayerIndex]?.userId ===
-          action.payload.turnPlayerId,
+        myTurn: action.payload.isMyTurn,
       };
     case 'TURN_RESULT':
+      return {
+        ...state,
+        myTurn: false,
+        scores: scoresToMap(action.payload.scores),
+      };
     case 'ROUND_END':
       return {
         ...state,
         scores: scoresToMap(action.payload.scores),
       };
     case 'GAME_FINISHED':
+      const finalScores = scoresToMap(action.payload.scores);
       return {
         ...state,
+        gameSession: state.gameSession
+          ? {
+              ...state.gameSession,
+              status: GameStatus.FINISHED,
+              winnerId: action.payload.winnerId,
+              players: state.gameSession.players.map((player) => ({
+                ...player,
+                score: finalScores[player.userId] ?? player.score,
+              })),
+            }
+          : state.gameSession,
+        currentQuestion: null,
+        myTurn: false,
+        timer: 0,
         status: 'FINISHED',
-        scores: scoresToMap(action.payload.scores),
+        scores: finalScores,
       };
     case 'TIMER_TICK':
       return {
@@ -123,7 +142,7 @@ export function GameProvider({ children }: PropsWithChildren) {
       type: 'TURN_START',
       payload: {
         question: payload.question,
-        turnPlayerId: payload.turnPlayerId,
+        isMyTurn: payload.turnPlayerId === user?.id,
       },
     });
   });

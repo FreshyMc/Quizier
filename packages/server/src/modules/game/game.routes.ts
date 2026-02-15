@@ -16,7 +16,21 @@ const createHttpError = (statusCode: number, message: string) => {
   return error;
 };
 
+const findGameSessionByIdentifier = async (identifierInput: string) => {
+  const identifier = identifierInput.trim();
+
+  if (Types.ObjectId.isValid(identifier)) {
+    const byId = await GameSessionModel.findById(identifier);
+    if (byId) {
+      return byId;
+    }
+  }
+
+  return GameSessionModel.findOne({ roomCode: identifier.toUpperCase() });
+};
+
 const serializeGame = (session: {
+  _id?: Types.ObjectId;
   roomCode: string;
   hostId: Types.ObjectId;
   status: string;
@@ -33,6 +47,7 @@ const serializeGame = (session: {
   createdAt?: Date;
   updatedAt?: Date;
 }) => ({
+  id: session._id?.toString() ?? '',
   roomCode: session.roomCode,
   hostId: session.hostId.toString(),
   status: session.status,
@@ -97,38 +112,22 @@ const gameRoutes: FastifyPluginAsync = async (fastify) => {
     };
   });
 
-  fastify.post('/api/games/:roomCode/start', { preHandler: [authenticate] }, async (request) => {
-    const roomCode = (request.params as { roomCode: string }).roomCode.trim().toUpperCase();
-    await startGameFromRest(fastify, roomCode, request.user.id);
+  fastify.post('/api/games/:gameId/start', { preHandler: [authenticate] }, async (request) => {
+    const gameId = (request.params as { gameId: string }).gameId;
+    const gameSession = await findGameSessionByIdentifier(gameId);
+    if (!gameSession) {
+      throw createHttpError(404, 'Game session not found');
+    }
 
-    const started = await GameSessionModel.findOne({ roomCode });
+    await startGameFromRest(fastify, gameSession.roomCode, request.user.id);
+
+    const started = await findGameSessionByIdentifier(gameId);
     if (!started) {
       throw createHttpError(404, 'Game session not found');
     }
 
     return {
       game: serializeGame(started.toObject()),
-    };
-  });
-
-  fastify.get('/api/games/:roomCode', { preHandler: [authenticate] }, async (request) => {
-    const roomCode = (request.params as { roomCode: string }).roomCode.trim().toUpperCase();
-
-    const gameSession = await GameSessionModel.findOne({ roomCode });
-    if (!gameSession) {
-      throw createHttpError(404, 'Game session not found');
-    }
-
-    const isParticipant = gameSession.players.some(
-      (player) => player.userId.toString() === request.user.id,
-    );
-
-    if (!isParticipant) {
-      throw createHttpError(403, 'You are not part of this game session');
-    }
-
-    return {
-      game: serializeGame(gameSession.toObject()),
     };
   });
 
@@ -143,6 +142,18 @@ const gameRoutes: FastifyPluginAsync = async (fastify) => {
 
     return {
       games: sessions.map((session) => serializeGame(session)),
+    };
+  });
+
+  fastify.get('/api/games/:gameId', { preHandler: [authenticate] }, async (request) => {
+    const gameId = (request.params as { gameId: string }).gameId;
+    const gameSession = await findGameSessionByIdentifier(gameId);
+    if (!gameSession) {
+      throw createHttpError(404, 'Game session not found');
+    }
+
+    return {
+      game: serializeGame(gameSession.toObject()),
     };
   });
 

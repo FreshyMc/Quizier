@@ -25,7 +25,19 @@ export function GameCreatePage() {
         maxPlayers,
         categories: selectedCategories,
       });
-      navigate(`/game/${response.roomCode}`);
+
+      const gameId = response.game?.id?.trim();
+      if (gameId) {
+        navigate(`/game/${gameId}`);
+        return;
+      }
+
+      const roomCode = response.game?.roomCode ?? response.roomCode;
+      if (!roomCode || roomCode.trim().length !== 6) {
+        throw new Error('Unable to create game room');
+      }
+
+      navigate(`/game/${roomCode.trim().toUpperCase()}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Unable to create game');
     }

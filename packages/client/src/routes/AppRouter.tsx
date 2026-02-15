@@ -40,7 +40,7 @@ export const appRouter = createBrowserRouter([
           { path: '/game/join', element: <GameJoinPage /> },
           {
             element: <GameLayout />,
-            children: [{ path: '/game/:roomCode', element: <GameRoomPage /> }],
+            children: [{ path: '/game/:gameId', element: <GameRoomPage /> }],
           },
           { path: '/questions/submit', element: <QuestionSubmitPage /> },
           { path: '/questions/my-submissions', element: <MySubmissionsPage /> },
