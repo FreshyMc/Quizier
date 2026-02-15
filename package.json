@@ -9,6 +9,8 @@
     "lint": "nx run-many -t lint",
     "test": "nx run-many -t test",
     "build": "nx run-many -t build",
+    "verify:build": "nx run-many -t build --outputStyle=static",
+    "dev": "nx run-many -t dev --projects=server,client --parallel",
     "dev:server": "nx run server:dev",
     "dev:client": "nx run client:dev"
   },
