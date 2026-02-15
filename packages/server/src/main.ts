@@ -5,6 +5,7 @@ import jwt from '@fastify/jwt';
 import mongoose from 'mongoose';
 
 import authRoutes from './modules/auth/auth.routes.js';
+import categoryRoutes from './modules/category/category.routes.js';
 
 const app = Fastify({ logger: true });
 
@@ -42,6 +43,7 @@ await app.register(jwt, {
 await app.register(authRoutes, {
   prefix: '/api/auth',
 });
+await app.register(categoryRoutes);
 
 app
   .listen({ port, host })
