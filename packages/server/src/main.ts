@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 
 import authRoutes from './modules/auth/auth.routes.js';
 import categoryRoutes from './modules/category/category.routes.js';
+import questionRoutes from './modules/question/question.routes.js';
 
 const app = Fastify({ logger: true });
 
@@ -44,6 +45,7 @@ await app.register(authRoutes, {
   prefix: '/api/auth',
 });
 await app.register(categoryRoutes);
+await app.register(questionRoutes);
 
 app
   .listen({ port, host })
