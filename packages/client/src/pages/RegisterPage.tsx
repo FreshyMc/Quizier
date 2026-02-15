@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { LoadingButton } from '../components/LoadingButton';
 import { useAuth } from '../contexts/AuthContext';
 
 export function RegisterPage() {
@@ -9,15 +10,19 @@ export function RegisterPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
+    setIsSubmitting(true);
     try {
       await register({ email, username, password });
       navigate('/dashboard');
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Unable to register');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -48,7 +53,13 @@ export function RegisterPage() {
           onChange={(e) => setPassword(e.target.value)}
         />
         {error ? <p className="text-xs text-rose-300">{error}</p> : null}
-        <button className="w-full rounded bg-blue-600 p-2 text-sm">Create account</button>
+        <LoadingButton
+          className="inline-flex w-full items-center justify-center gap-2 rounded bg-blue-600 p-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+          isLoading={isSubmitting}
+          loadingText="Creating account..."
+        >
+          Create account
+        </LoadingButton>
         <Link to="/login" className="block text-center text-xs text-blue-300">
           Already have an account?
         </Link>

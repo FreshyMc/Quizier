@@ -1,5 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { LoadingButton } from '../components/LoadingButton';
 import { useCategories, useCreateGameMutation } from '../hooks/queries';
 
 export function GameCreatePage() {
@@ -76,12 +77,14 @@ export function GameCreatePage() {
           </label>
         ))}
       </div>
-      <button
-        className="rounded bg-blue-600 px-4 py-2 text-sm"
+      <LoadingButton
+        className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
         disabled={createGame.isPending || selectedCategories.length === 0}
+        isLoading={createGame.isPending}
+        loadingText="Creating..."
       >
-        {createGame.isPending ? 'Creating...' : 'Create room'}
-      </button>
+        Create room
+      </LoadingButton>
     </form>
   );
 }

@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react';
+import { LoadingButton } from '../components/LoadingButton';
 import { useCategories, useSubmitQuestionMutation } from '../hooks/queries';
 
 export function QuestionSubmitPage() {
@@ -11,11 +12,18 @@ export function QuestionSubmitPage() {
   const [difficulty, setDifficulty] = useState<'EASY' | 'MEDIUM' | 'HARD'>('EASY');
   const [categoryId, setCategoryId] = useState('');
 
+  const resetForm = () => {
+    setText('');
+    setOptions(['', '', '', '']);
+    setCorrectIndex(0);
+    setDifficulty('EASY');
+    setCategoryId('');
+  };
+
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
     await submit.mutateAsync({ text, options, correctIndex, difficulty, categoryId });
-    setText('');
-    setOptions(['', '', '', '']);
+    resetForm();
   };
 
   return (
@@ -30,26 +38,30 @@ export function QuestionSubmitPage() {
         onChange={(e) => setText(e.target.value)}
         placeholder="Question"
       />
+      <p className="text-sm text-slate-300">Correct answer (select one option):</p>
       {options.map((option, index) => (
-        <input
+        <label
           key={index}
-          className="w-full rounded bg-slate-800 p-2 text-sm"
-          value={option}
-          onChange={(e) =>
-            setOptions((prev) => prev.map((item, i) => (i === index ? e.target.value : item)))
-          }
-          placeholder={`Option ${index + 1}`}
-        />
+          className="flex items-center gap-3 rounded bg-slate-800 p-2 text-sm text-slate-100"
+        >
+          <input
+            type="radio"
+            name="correctOption"
+            checked={correctIndex === index}
+            onChange={() => setCorrectIndex(index)}
+            aria-label={`Mark option ${index + 1} as correct`}
+          />
+          <input
+            className="w-full rounded bg-slate-700 p-2 text-sm"
+            value={option}
+            onChange={(e) =>
+              setOptions((prev) => prev.map((item, i) => (i === index ? e.target.value : item)))
+            }
+            placeholder={`Option ${index + 1}`}
+          />
+        </label>
       ))}
-      <div className="grid gap-2 sm:grid-cols-3">
-        <input
-          type="number"
-          min={0}
-          max={3}
-          value={correctIndex}
-          onChange={(e) => setCorrectIndex(Number(e.target.value))}
-          className="rounded bg-slate-800 p-2 text-sm"
-        />
+      <div className="grid gap-2 sm:grid-cols-2">
         <select
           value={difficulty}
           onChange={(e) => setDifficulty(e.target.value as 'EASY' | 'MEDIUM' | 'HARD')}
@@ -72,9 +84,13 @@ export function QuestionSubmitPage() {
           ))}
         </select>
       </div>
-      <button className="rounded bg-blue-600 px-4 py-2 text-sm" disabled={submit.isPending}>
+      <LoadingButton
+        className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+        isLoading={submit.isPending}
+        loadingText="Submitting..."
+      >
         Submit
-      </button>
+      </LoadingButton>
     </form>
   );
 }

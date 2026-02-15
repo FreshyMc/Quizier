@@ -37,7 +37,7 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
   }
 
   request.user = payload;
-  return reply;
+  return;
 };
 
 export const authorize = (roles: UserRole[]): preHandlerHookHandler => {

@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
+import { LoadingButton } from '../components/LoadingButton';
 import { useAuth } from '../contexts/AuthContext';
 
 export function LoginPage() {
@@ -9,16 +10,20 @@ export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
+    setIsSubmitting(true);
     try {
       await login({ email, password });
       const next = (location.state as { from?: string } | null)?.from ?? '/dashboard';
       navigate(next);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Unable to login');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -43,7 +48,13 @@ export function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
         />
         {error ? <p className="text-xs text-rose-300">{error}</p> : null}
-        <button className="w-full rounded bg-blue-600 p-2 text-sm">Sign in</button>
+        <LoadingButton
+          className="inline-flex w-full items-center justify-center gap-2 rounded bg-blue-600 p-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+          isLoading={isSubmitting}
+          loadingText="Signing in..."
+        >
+          Sign in
+        </LoadingButton>
         <Link to="/register" className="block text-center text-xs text-blue-300">
           Create account
         </Link>

@@ -1,9 +1,22 @@
+import { useState } from 'react';
 import { Link, Outlet } from 'react-router';
+import { UserRole } from '@shared/enums';
+import { LoadingButton } from './LoadingButton';
 import { NotificationBell } from './NotificationBell';
 import { useAuth } from '../contexts/AuthContext';
 
 export function Layout() {
   const { logout, user } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const onLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -25,16 +38,28 @@ export function Layout() {
             <Link to="/leaderboard" className="hover:text-blue-300">
               Leaderboard
             </Link>
+            {user?.role === UserRole.ADMIN ? (
+              <>
+                <Link to="/admin/categories" className="hover:text-blue-300">
+                  Admin Categories
+                </Link>
+                <Link to="/admin/questions" className="hover:text-blue-300">
+                  Admin Questions
+                </Link>
+              </>
+            ) : null}
           </nav>
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate-300">{user?.username}</span>
-            <button
+            <LoadingButton
               type="button"
-              onClick={() => void logout()}
-              className="rounded bg-slate-700 px-3 py-1 text-sm hover:bg-slate-600"
+              onClick={() => void onLogout()}
+              className="inline-flex items-center gap-2 rounded bg-slate-700 px-3 py-1 text-sm hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-60"
+              isLoading={isLoggingOut}
+              loadingText="Logging out..."
             >
               Logout
-            </button>
+            </LoadingButton>
           </div>
         </div>
       </header>

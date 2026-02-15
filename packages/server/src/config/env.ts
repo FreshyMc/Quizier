@@ -46,9 +46,13 @@ export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: Number(process.env.PORT ?? 4000),
   clientUrl: process.env.CLIENT_URL,
+  clientUrls: (process.env.CLIENT_URLS ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean),
   mongodbUri: requireEnv('MONGODB_URI'),
   jwtSecret: requireEnv('JWT_SECRET'),
   jwtRefreshSecret: requireEnv('JWT_REFRESH_SECRET'),
-  adminEmail: process.env.ADMIN_EMAIL,
-  adminPassword: process.env.ADMIN_PASSWORD,
+  adminEmail: requireEnv('ADMIN_EMAIL'),
+  adminPassword: requireEnv('ADMIN_PASSWORD'),
 };

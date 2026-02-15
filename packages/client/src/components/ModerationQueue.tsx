@@ -1,7 +1,14 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { LoadingButton } from './LoadingButton';
 
 export function ModerationQueue() {
+  const [pendingAction, setPendingAction] = useState<{
+    submissionId: string;
+    action: 'approve' | 'reject';
+  } | null>(null);
+
   const { data, refetch } = useQuery({
     queryKey: ['moderation-pending'],
     queryFn: () =>
@@ -11,13 +18,23 @@ export function ModerationQueue() {
   });
 
   const approve = async (id: string) => {
-    await api.patch(`/api/admin/questions/${id}/approve`);
-    await refetch();
+    setPendingAction({ submissionId: id, action: 'approve' });
+    try {
+      await api.patch(`/api/admin/questions/${id}/approve`);
+      await refetch();
+    } finally {
+      setPendingAction(null);
+    }
   };
 
   const reject = async (id: string) => {
-    await api.patch(`/api/admin/questions/${id}/reject`, { reason: 'Needs improvement' });
-    await refetch();
+    setPendingAction({ submissionId: id, action: 'reject' });
+    try {
+      await api.patch(`/api/admin/questions/${id}/reject`, { reason: 'Needs improvement' });
+      await refetch();
+    } finally {
+      setPendingAction(null);
+    }
   };
 
   return (
@@ -30,18 +47,40 @@ export function ModerationQueue() {
               {submission.question?.text ?? 'Pending question'}
             </p>
             <div className="mt-2 flex gap-2 text-xs">
-              <button
-                className="rounded bg-emerald-700 px-2 py-1"
-                onClick={() => void approve(submission.id)}
-              >
-                Approve
-              </button>
-              <button
-                className="rounded bg-rose-700 px-2 py-1"
-                onClick={() => void reject(submission.id)}
-              >
-                Reject
-              </button>
+              {(() => {
+                const isApproving =
+                  pendingAction?.submissionId === submission.id &&
+                  pendingAction.action === 'approve';
+                const isRejecting =
+                  pendingAction?.submissionId === submission.id &&
+                  pendingAction.action === 'reject';
+                const isBusy = pendingAction?.submissionId === submission.id;
+
+                return (
+                  <>
+                    <LoadingButton
+                      className="inline-flex items-center gap-1 rounded bg-emerald-700 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={() => void approve(submission.id)}
+                      disabled={isBusy}
+                      isLoading={isApproving}
+                      loadingText="Approving..."
+                      spinnerClassName="h-3 w-3"
+                    >
+                      Approve
+                    </LoadingButton>
+                    <LoadingButton
+                      className="inline-flex items-center gap-1 rounded bg-rose-700 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={() => void reject(submission.id)}
+                      disabled={isBusy}
+                      isLoading={isRejecting}
+                      loadingText="Rejecting..."
+                      spinnerClassName="h-3 w-3"
+                    >
+                      Reject
+                    </LoadingButton>
+                  </>
+                );
+              })()}
             </div>
           </li>
         ))}

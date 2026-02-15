@@ -21,13 +21,39 @@ const host = '0.0.0.0';
 
 const mongodbUri = env.mongodbUri;
 const jwtSecret = env.jwtSecret;
+const allowedOrigins = new Set([...(env.clientUrl ? [env.clientUrl] : []), ...env.clientUrls]);
+
+const isAllowedCorsOrigin = (origin: string | undefined) => {
+  if (!origin) {
+    return true;
+  }
+
+  if (allowedOrigins.has(origin)) {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(origin);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+
+    return parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+  } catch {
+    return false;
+  }
+};
 
 await mongoose.connect(mongodbUri);
 
 await app.register(cookie);
 await app.register(cors, {
-  origin: env.clientUrl ?? true,
+  origin(origin, callback) {
+    callback(null, isAllowedCorsOrigin(origin));
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 });
 await app.register(jwt, {
   secret: jwtSecret,
