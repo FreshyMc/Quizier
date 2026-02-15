@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Difficulty } from './enums.js';
+import { NotificationType } from './enums.js';
 
 export const loginSchema = z.object({
   email: z.email(),
@@ -45,6 +46,18 @@ export const rejectSubmissionSchema = z.object({
   reason: z.string().trim().min(1).max(500),
 });
 
+export const notificationSchema = z.object({
+  id: z.string(),
+  type: z.enum(NotificationType),
+  title: z.string(),
+  message: z.string(),
+  data: z.unknown().nullable().optional(),
+  isRead: z.boolean().optional(),
+  readAt: z.date().nullable().optional(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type TokenPayload = z.infer<typeof tokenPayloadSchema>;
@@ -53,3 +66,4 @@ export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
 export type CreateQuestionInput = z.infer<typeof createQuestionSchema>;
 export type SubmitQuestionInput = z.infer<typeof submitQuestionSchema>;
 export type RejectSubmissionInput = z.infer<typeof rejectSubmissionSchema>;
+export type NotificationPayload = z.infer<typeof notificationSchema>;
