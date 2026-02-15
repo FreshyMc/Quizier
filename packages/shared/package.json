@@ -2,8 +2,11 @@
   "name": "@quizier/shared",
   "version": "0.1.0",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "peerDependencies": {
     "zod": "^4.0.0"
   }

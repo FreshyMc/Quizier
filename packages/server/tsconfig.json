@@ -1,6 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "baseUrl": "../..",
+    "paths": {
+      "@shared/*": ["packages/shared/src/*"],
+      "@server/*": ["packages/server/src/*"],
+      "@client/*": ["packages/client/src/*"]
+    },
     "target": "ES2022",
     "module": "NodeNext",
     "outDir": "../../dist/packages/server",
