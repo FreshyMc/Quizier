@@ -53,23 +53,34 @@ const toStatePayload = (session: {
   winnerId: session.winnerId?.toString() ?? null,
 });
 
-const emitStateUpdate = (io: TypedIo, session: {
-  roomCode: string;
-  status: string;
-  hostId: Types.ObjectId;
-  players: Array<{ userId: Types.ObjectId; username: string; score: number; isConnected: boolean }>;
-  currentRound: number;
-  currentTurnPlayerIndex: number;
-  winnerId?: Types.ObjectId | null;
-}) => {
+const emitStateUpdate = (
+  io: TypedIo,
+  session: {
+    roomCode: string;
+    status: string;
+    hostId: Types.ObjectId;
+    players: Array<{
+      userId: Types.ObjectId;
+      username: string;
+      score: number;
+      isConnected: boolean;
+    }>;
+    currentRound: number;
+    currentTurnPlayerIndex: number;
+    winnerId?: Types.ObjectId | null;
+  },
+) => {
   io.to(session.roomCode).emit('game:stateUpdate', toStatePayload(session));
 };
 
-const emitRoundEnd = (io: TypedIo, session: {
-  roomCode: string;
-  currentRound: number;
-  players: Array<{ userId: Types.ObjectId; score: number }>;
-}) => {
+const emitRoundEnd = (
+  io: TypedIo,
+  session: {
+    roomCode: string;
+    currentRound: number;
+    players: Array<{ userId: Types.ObjectId; score: number }>;
+  },
+) => {
   io.to(session.roomCode).emit('game:roundEnd', {
     roomCode: session.roomCode,
     roundNumber: session.currentRound + 1,
@@ -157,7 +168,8 @@ const buildRounds = async (session: {
   }> = [];
 
   for (let roundNumber = 1; roundNumber <= session.settings.roundsPerPlayer; roundNumber += 1) {
-    const categoryId = session.settings.categories[(roundNumber - 1) % session.settings.categories.length];
+    const categoryId =
+      session.settings.categories[(roundNumber - 1) % session.settings.categories.length];
     const categoryKey = categoryId.toString();
     const categoryQuestions = byCategory.get(categoryKey) ?? [];
 
@@ -210,7 +222,10 @@ const updateFinalStats = async (session: {
 
     let answeredCount = 0;
     let correctCount = 0;
-    const categoryMap = new Map<string, { categoryId: Types.ObjectId; totalAnswered: number; totalCorrect: number }>();
+    const categoryMap = new Map<
+      string,
+      { categoryId: Types.ObjectId; totalAnswered: number; totalCorrect: number }
+    >();
 
     for (const round of session.rounds) {
       const questionEntry = round.questions[playerIndex];
@@ -263,12 +278,13 @@ const updateFinalStats = async (session: {
       continue;
     }
 
-    const categoryStats = (statsDoc.categoryStats as Array<{
-      categoryId: Types.ObjectId;
-      totalAnswered: number;
-      totalCorrect: number;
-      accuracy: number;
-    }>) ?? [];
+    const categoryStats =
+      (statsDoc.categoryStats as Array<{
+        categoryId: Types.ObjectId;
+        totalAnswered: number;
+        totalCorrect: number;
+        accuracy: number;
+      }>) ?? [];
 
     for (const stat of categoryMap.values()) {
       const existing = categoryStats.find(
@@ -292,9 +308,13 @@ const updateFinalStats = async (session: {
 
     statsDoc.set('categoryStats', categoryStats as unknown as object[]);
     statsDoc.winRate =
-      statsDoc.totalGamesPlayed > 0 ? (statsDoc.totalGamesWon / statsDoc.totalGamesPlayed) * 100 : 0;
+      statsDoc.totalGamesPlayed > 0
+        ? (statsDoc.totalGamesWon / statsDoc.totalGamesPlayed) * 100
+        : 0;
     statsDoc.avgAccuracy =
-      statsDoc.totalAnswered > 0 ? (statsDoc.totalCorrectAnswers / statsDoc.totalAnswered) * 100 : 0;
+      statsDoc.totalAnswered > 0
+        ? (statsDoc.totalCorrectAnswers / statsDoc.totalAnswered) * 100
+        : 0;
 
     await statsDoc.save();
   }
@@ -484,7 +504,8 @@ const processAnswer = async (
     Math.max(0, Math.round((Date.now() - turn.startedAt) / 1000)),
   );
 
-  const isCorrect = !timedOut && selectedOption !== null && selectedOption === question.correctIndex;
+  const isCorrect =
+    !timedOut && selectedOption !== null && selectedOption === question.correctIndex;
 
   roundQuestion.answeredBy = new Types.ObjectId(userId);
   roundQuestion.selectedOption = timedOut ? null : selectedOption;
@@ -551,7 +572,11 @@ const startGame = async (fastify: FastifyInstance, roomCode: string, hostId: str
   await startTurn(fastify, roomCode);
 };
 
-const joinGameRoom = async (fastify: FastifyInstance, socket: TypedSocket, roomCodeInput: string) => {
+const joinGameRoom = async (
+  fastify: FastifyInstance,
+  socket: TypedSocket,
+  roomCodeInput: string,
+) => {
   const io = fastify.io as TypedIo | undefined;
   if (!io) {
     return;
@@ -809,6 +834,10 @@ export const createGameSession = async (input: {
   return gameSession;
 };
 
-export const startGameFromRest = async (fastify: FastifyInstance, roomCode: string, hostId: string) => {
+export const startGameFromRest = async (
+  fastify: FastifyInstance,
+  roomCode: string,
+  hostId: string,
+) => {
   await startGame(fastify, roomCode, hostId);
 };

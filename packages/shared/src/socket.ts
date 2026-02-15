@@ -28,7 +28,13 @@ export interface ServerToClientEvents {
     roundNumber: number;
     turnPlayerId: string;
     turnPlayerUsername: string;
-    question: { id: string; text: string; options: string[]; categoryId: string; difficulty: string };
+    question: {
+      id: string;
+      text: string;
+      options: string[];
+      categoryId: string;
+      difficulty: string;
+    };
     secondsLeft: number;
   }) => void;
   'game:turnResult': (payload: {
@@ -52,7 +58,10 @@ export interface ServerToClientEvents {
     winnerId: string | null;
     scores: Array<{ userId: string; score: number }>;
   }) => void;
-  'game:playerJoined': (payload: { roomCode: string; player: { userId: string; username: string } }) => void;
+  'game:playerJoined': (payload: {
+    roomCode: string;
+    player: { userId: string; username: string };
+  }) => void;
   'game:playerLeft': (payload: { roomCode: string; userId: string }) => void;
   'game:timerTick': (payload: { secondsLeft: number }) => void;
   'notification:new': (payload: unknown) => void;

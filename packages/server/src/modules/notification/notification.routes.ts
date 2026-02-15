@@ -23,7 +23,8 @@ const normalizeNotification = (notification: {
   updatedAt?: Date;
 }) => ({
   id: notification._id?.toString() ?? '',
-  userId: typeof notification.userId === 'string' ? notification.userId : notification.userId.toString(),
+  userId:
+    typeof notification.userId === 'string' ? notification.userId : notification.userId.toString(),
   type: notification.type,
   title: notification.title,
   message: notification.message,
@@ -59,14 +60,18 @@ const notificationRoutes: FastifyPluginAsync = async (fastify) => {
     };
   });
 
-  fastify.get('/api/notifications/unread-count', { preHandler: [authenticate] }, async (request) => {
-    const unreadCount = await NotificationModel.countDocuments({
-      userId: request.user.id,
-      isRead: false,
-    });
+  fastify.get(
+    '/api/notifications/unread-count',
+    { preHandler: [authenticate] },
+    async (request) => {
+      const unreadCount = await NotificationModel.countDocuments({
+        userId: request.user.id,
+        isRead: false,
+      });
 
-    return { unreadCount };
-  });
+      return { unreadCount };
+    },
+  );
 
   fastify.patch('/api/notifications/:id/read', { preHandler: [authenticate] }, async (request) => {
     const notificationId = (request.params as { id: string }).id;
