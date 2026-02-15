@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { UserRole } from '@quizier/shared';
+import type { ClientToServerEvents, ServerToClientEvents } from '@quizier/shared';
 import { Server as SocketIOServer } from 'socket.io';
 
 import { authCookieNames } from '../auth/auth.service.js';
@@ -32,7 +33,7 @@ const parseCookieHeader = (cookieHeader: string | undefined) => {
 };
 
 export const setupNotificationSocket = (fastify: FastifyInstance) => {
-  const io = new SocketIOServer(fastify.server, {
+  const io = new SocketIOServer<ClientToServerEvents, ServerToClientEvents>(fastify.server, {
     cors: {
       origin: process.env.CLIENT_URL ?? true,
       credentials: true,

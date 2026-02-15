@@ -1,6 +1,6 @@
 import 'fastify';
 import '@fastify/jwt';
-import type { UserRole } from '@quizier/shared';
+import type { ClientToServerEvents, ServerToClientEvents, UserRole } from '@quizier/shared';
 import type { Server as SocketIOServer } from 'socket.io';
 
 type AuthTokenUser = {
@@ -18,7 +18,7 @@ declare module '@fastify/jwt' {
 
 declare module 'fastify' {
   interface FastifyInstance {
-    io?: SocketIOServer;
+    io?: SocketIOServer<ClientToServerEvents, ServerToClientEvents>;
   }
 
   interface FastifyRequest {

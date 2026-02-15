@@ -58,6 +58,22 @@ export const notificationSchema = z.object({
   updatedAt: z.date().optional(),
 });
 
+export const createGameSchema = z.object({
+  maxPlayers: z.number().int().min(2).max(12).optional().default(4),
+  roundsPerPlayer: z.number().int().min(1).max(20),
+  timePerTurn: z.number().int().min(5).max(120).optional().default(30),
+  categories: z.array(z.string().trim().min(1)).min(1),
+});
+
+export const joinGameSchema = z.object({
+  roomCode: z.string().trim().length(6),
+});
+
+export const answerSchema = z.object({
+  roomCode: z.string().trim().length(6),
+  option: z.number().int().min(0).max(3),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type TokenPayload = z.infer<typeof tokenPayloadSchema>;
@@ -67,3 +83,6 @@ export type CreateQuestionInput = z.infer<typeof createQuestionSchema>;
 export type SubmitQuestionInput = z.infer<typeof submitQuestionSchema>;
 export type RejectSubmissionInput = z.infer<typeof rejectSubmissionSchema>;
 export type NotificationPayload = z.infer<typeof notificationSchema>;
+export type CreateGameInput = z.infer<typeof createGameSchema>;
+export type JoinGameInput = z.infer<typeof joinGameSchema>;
+export type AnswerInput = z.infer<typeof answerSchema>;

@@ -6,8 +6,9 @@ import mongoose from 'mongoose';
 
 import authRoutes from './modules/auth/auth.routes.js';
 import categoryRoutes from './modules/category/category.routes.js';
-import notificationRoutes from './modules/notification/notification.routes.js';
-import { setupNotificationSocket } from './modules/notification/notification.socket.js';
+import gameRoutes from './modules/game/game.routes.js';
+import { setupGameSocket } from './modules/game/game.socket.js';
+import { notificationRoutes, setupNotificationSocket } from './modules/notification/index.js';
 import questionRoutes from './modules/question/question.routes.js';
 
 const app = Fastify({ logger: true });
@@ -44,11 +45,13 @@ await app.register(jwt, {
 });
 
 setupNotificationSocket(app);
+setupGameSocket(app);
 
 await app.register(authRoutes, {
   prefix: '/api/auth',
 });
 await app.register(categoryRoutes);
+await app.register(gameRoutes);
 await app.register(notificationRoutes);
 await app.register(questionRoutes);
 
