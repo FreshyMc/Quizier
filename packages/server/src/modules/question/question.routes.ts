@@ -20,15 +20,8 @@ const createHttpError = (statusCode: number, message: string) => {
   return error;
 };
 
-type NotificationEmitter = {
-  to: (room: string) => {
-    emit: (event: string, payload: unknown) => void;
-  };
-};
-
 const emitNotification = (fastify: FastifyInstance, userId: string, payload: unknown) => {
-  const maybeIo = (fastify as FastifyInstance & { io?: NotificationEmitter }).io;
-  maybeIo?.to(`user:${userId}`).emit('notification:new', payload);
+  fastify.io?.to(`user:${userId}`).emit('notification:new', payload);
 };
 
 const normalizeSubmission = (submission: {
