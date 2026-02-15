@@ -87,7 +87,9 @@ const categoryRoutes: FastifyPluginAsync = async (fastify) => {
     '/api/admin/categories/archived',
     { preHandler: [authenticate, authorize([UserRole.ADMIN])] },
     async () => {
-      const categories = await CategoryModel.find({ isActive: false }).sort({ deletedAt: -1 }).lean();
+      const categories = await CategoryModel.find({ isActive: false })
+        .sort({ deletedAt: -1 })
+        .lean();
       return { categories: categories.map(normalizeCategory) };
     },
   );
@@ -112,7 +114,9 @@ const categoryRoutes: FastifyPluginAsync = async (fastify) => {
           {
             $set: {
               ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
-              ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+              ...(parsed.data.description !== undefined
+                ? { description: parsed.data.description }
+                : {}),
             },
           },
           { new: true, runValidators: true },
