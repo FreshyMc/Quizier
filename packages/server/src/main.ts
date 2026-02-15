@@ -10,34 +10,23 @@ import gameRoutes from './modules/game/game.routes.js';
 import { setupGameSocket } from './modules/game/game.socket.js';
 import { notificationRoutes, setupNotificationSocket } from './modules/notification/index.js';
 import questionRoutes from './modules/question/question.routes.js';
+import { env } from './config/env.js';
 
 const app = Fastify({ logger: true });
 
 app.get('/health', async () => ({ status: 'ok' }));
 
-const port = Number(process.env.PORT ?? 4000);
+const port = env.port;
 const host = '0.0.0.0';
 
-const mongodbUri = process.env.MONGODB_URI;
-const jwtSecret = process.env.JWT_SECRET;
-
-if (!mongodbUri) {
-  throw new Error('MONGODB_URI must be set');
-}
-
-if (!jwtSecret) {
-  throw new Error('JWT_SECRET must be set');
-}
-
-if (!process.env.JWT_REFRESH_SECRET) {
-  throw new Error('JWT_REFRESH_SECRET must be set');
-}
+const mongodbUri = env.mongodbUri;
+const jwtSecret = env.jwtSecret;
 
 await mongoose.connect(mongodbUri);
 
 await app.register(cookie);
 await app.register(cors, {
-  origin: process.env.CLIENT_URL ?? true,
+  origin: env.clientUrl ?? true,
   credentials: true,
 });
 await app.register(jwt, {

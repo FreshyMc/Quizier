@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { UserRole } from '@quizier/shared';
 
+import { env } from '../../config/env.js';
 import { UserModel } from '../../models/user.model.js';
 
 const ACCESS_TOKEN_COOKIE = 'accessToken';
@@ -41,7 +42,7 @@ const createHttpError = (statusCode: number, message: string) => {
 const getCookieOptions = () => ({
   path: '/',
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: env.nodeEnv === 'production',
   sameSite: 'lax' as const,
 });
 
@@ -60,7 +61,7 @@ const issueTokens = (
     { ...payload, type: 'refresh' },
     {
       expiresIn: REFRESH_TOKEN_TTL,
-      key: process.env.JWT_REFRESH_SECRET,
+      key: env.jwtRefreshSecret,
     },
   );
 
@@ -182,7 +183,7 @@ export const refresh = async (
   let payload: AuthTokenPayload;
   try {
     payload = fastify.jwt.verify<AuthTokenPayload>(refreshToken, {
-      key: process.env.JWT_REFRESH_SECRET,
+      key: env.jwtRefreshSecret,
     });
   } catch {
     throw createHttpError(401, 'Invalid refresh token');

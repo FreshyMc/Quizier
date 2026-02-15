@@ -3,6 +3,7 @@ import type { UserRole } from '@quizier/shared';
 import type { ClientToServerEvents, ServerToClientEvents } from '@quizier/shared';
 import { Server as SocketIOServer } from 'socket.io';
 
+import { env } from '../../config/env.js';
 import { authCookieNames } from '../auth/auth.service.js';
 
 type AccessTokenPayload = {
@@ -35,7 +36,7 @@ const parseCookieHeader = (cookieHeader: string | undefined) => {
 export const setupNotificationSocket = (fastify: FastifyInstance) => {
   const io = new SocketIOServer<ClientToServerEvents, ServerToClientEvents>(fastify.server, {
     cors: {
-      origin: process.env.CLIENT_URL ?? true,
+      origin: env.clientUrl ?? true,
       credentials: true,
     },
   });
@@ -51,7 +52,7 @@ export const setupNotificationSocket = (fastify: FastifyInstance) => {
       }
 
       const payload = fastify.jwt.verify<AccessTokenPayload>(accessToken, {
-        key: process.env.JWT_SECRET,
+        key: env.jwtSecret,
       });
 
       if (payload.type !== 'access') {

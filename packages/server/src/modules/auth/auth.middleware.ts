@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
 import { UserRole } from '@quizier/shared';
 
+import { env } from '../../config/env.js';
 import { authCookieNames } from './auth.service.js';
 
 type AuthTokenPayload = {
@@ -25,7 +26,7 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
   let payload: AuthTokenPayload;
   try {
     payload = request.server.jwt.verify<AuthTokenPayload>(token, {
-      key: process.env.JWT_SECRET,
+      key: env.jwtSecret,
     });
   } catch {
     throw createHttpError(401, 'Invalid authentication token');
