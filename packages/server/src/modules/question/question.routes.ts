@@ -12,6 +12,7 @@ import { CategoryModel } from '../../models/category.model.js';
 import { NotificationModel } from '../../models/notification.model.js';
 import { QuestionSubmissionModel } from '../../models/question-submission.model.js';
 import { QuestionModel } from '../../models/question.model.js';
+import { formatValidationErrorMessage } from '../../utils/validation.js';
 import { authenticate, authorize } from '../auth/auth.middleware.js';
 
 const createHttpError = (statusCode: number, message: string) => {
@@ -69,7 +70,7 @@ const questionRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/api/questions/submit', { preHandler: [authenticate] }, async (request) => {
     const parsed = submitQuestionSchema.safeParse(request.body);
     if (!parsed.success) {
-      throw createHttpError(400, parsed.error.issues[0]?.message ?? 'Invalid request body');
+      throw createHttpError(400, formatValidationErrorMessage(parsed.error));
     }
 
     if (!Types.ObjectId.isValid(parsed.data.categoryId)) {
@@ -242,7 +243,7 @@ const questionRoutes: FastifyPluginAsync = async (fastify) => {
 
       const parsed = rejectSubmissionSchema.safeParse(request.body);
       if (!parsed.success) {
-        throw createHttpError(400, parsed.error.issues[0]?.message ?? 'Invalid request body');
+        throw createHttpError(400, formatValidationErrorMessage(parsed.error));
       }
 
       const submission = await QuestionSubmissionModel.findById(submissionId);

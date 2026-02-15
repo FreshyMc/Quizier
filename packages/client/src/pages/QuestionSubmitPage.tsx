@@ -11,6 +11,7 @@ export function QuestionSubmitPage() {
   const [correctIndex, setCorrectIndex] = useState(0);
   const [difficulty, setDifficulty] = useState<'EASY' | 'MEDIUM' | 'HARD'>('EASY');
   const [categoryId, setCategoryId] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   const resetForm = () => {
     setText('');
@@ -22,8 +23,13 @@ export function QuestionSubmitPage() {
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    await submit.mutateAsync({ text, options, correctIndex, difficulty, categoryId });
-    resetForm();
+    setError(null);
+    try {
+      await submit.mutateAsync({ text, options, correctIndex, difficulty, categoryId });
+      resetForm();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Unable to submit question');
+    }
   };
 
   return (
@@ -84,6 +90,7 @@ export function QuestionSubmitPage() {
           ))}
         </select>
       </div>
+      {error ? <p className="text-xs text-rose-300">{error}</p> : null}
       <LoadingButton
         className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
         isLoading={submit.isPending}

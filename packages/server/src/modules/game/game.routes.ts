@@ -6,6 +6,7 @@ import { CategoryModel } from '../../models/category.model.js';
 import { GameSessionModel } from '../../models/game-session.model.js';
 import { PlayerStatsModel } from '../../models/player-stats.model.js';
 import { UserModel } from '../../models/user.model.js';
+import { formatValidationErrorMessage } from '../../utils/validation.js';
 import { authenticate } from '../auth/auth.middleware.js';
 import { createGameSession, startGameFromRest } from './game.socket.js';
 
@@ -58,7 +59,7 @@ const gameRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/api/games', { preHandler: [authenticate] }, async (request) => {
     const parsed = createGameSchema.safeParse(request.body);
     if (!parsed.success) {
-      throw createHttpError(400, parsed.error.issues[0]?.message ?? 'Invalid request body');
+      throw createHttpError(400, formatValidationErrorMessage(parsed.error));
     }
 
     for (const categoryId of parsed.data.categories) {

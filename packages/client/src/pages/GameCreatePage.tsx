@@ -11,18 +11,24 @@ export function GameCreatePage() {
   const [timePerTurn, setTimePerTurn] = useState(30);
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const categories = useMemo(() => data?.categories ?? [], [data]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const response = await createGame.mutateAsync({
-      roundsPerPlayer,
-      timePerTurn,
-      maxPlayers,
-      categories: selectedCategories,
-    });
-    navigate(`/game/${response.roomCode}`);
+    setError(null);
+    try {
+      const response = await createGame.mutateAsync({
+        roundsPerPlayer,
+        timePerTurn,
+        maxPlayers,
+        categories: selectedCategories,
+      });
+      navigate(`/game/${response.roomCode}`);
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Unable to create game');
+    }
   };
 
   return (
@@ -77,6 +83,7 @@ export function GameCreatePage() {
           </label>
         ))}
       </div>
+      {error ? <p className="text-xs text-rose-300">{error}</p> : null}
       <LoadingButton
         className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
         disabled={createGame.isPending || selectedCategories.length === 0}
