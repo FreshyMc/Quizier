@@ -8,8 +8,7 @@ import authRoutes from './modules/auth/auth.routes.js';
 import categoryRoutes from './modules/category/category.routes.js';
 import gameRoutes from './modules/game/game.routes.js';
 import { setupGameSocket } from './modules/game/game.socket.js';
-import notificationRoutes from './modules/notification/notification.routes.js';
-import { setupNotificationSocket } from './modules/notification/notification.socket.js';
+import { notificationRoutes, setupNotificationSocket } from './modules/notification/index.js';
 import questionRoutes from './modules/question/question.routes.js';
 
 const app = Fastify({ logger: true });
