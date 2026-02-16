@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { GameSessionDto, NotificationItem } from '../types/app';
 
@@ -63,7 +63,90 @@ export const useCreateGameMutation = () =>
       api.post<{ roomCode: string; game: GameSessionDto }>('/api/games', payload),
   });
 
-export const useMarkNotificationReadMutation = () =>
-  useMutation({
-    mutationFn: (notificationId: string) => api.patch(`/api/notifications/${notificationId}/read`),
+export const useMarkNotificationReadMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (notificationId: string) =>
+      api.patch<{ notification: NotificationItem }>(`/api/notifications/${notificationId}/read`),
+    onSuccess: (data) => {
+      const updated = data?.notification;
+      if (updated?.id) {
+        queryClient.setQueriesData(
+          {
+            predicate: (query) =>
+              query.queryKey[0] === 'notifications' &&
+              typeof query.queryKey[1] === 'number' &&
+              query.queryKey.length === 2,
+          },
+          (previous: unknown) => {
+            if (!previous || typeof previous !== 'object') return previous;
+            const maybe = previous as {
+              notifications?: NotificationItem[];
+              pagination?: { page: number; totalPages: number };
+            };
+
+            if (!Array.isArray(maybe.notifications)) return previous;
+
+            return {
+              ...maybe,
+              notifications: maybe.notifications.map((item) =>
+                item.id === updated.id ? { ...item, ...updated } : item,
+              ),
+            };
+          },
+        );
+      }
+
+      if (updated?.isRead) {
+        queryClient.setQueryData(queryKeys.unreadCount, (previous: unknown) => {
+          const maybe = previous as { unreadCount?: number } | undefined;
+          const current = typeof maybe?.unreadCount === 'number' ? maybe.unreadCount : undefined;
+          if (current === undefined) return previous;
+          return { unreadCount: Math.max(0, current - 1) };
+        });
+      }
+
+      queryClient.invalidateQueries({ queryKey: queryKeys.unreadCount });
+    },
   });
+};
+
+export const useMarkAllNotificationsReadMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () =>
+      api.patch<{ updatedCount: number; readAt: string | Date }>('/api/notifications/read-all'),
+    onSuccess: () => {
+      const nowIso = new Date().toISOString();
+
+      queryClient.setQueriesData(
+        {
+          predicate: (query) =>
+            query.queryKey[0] === 'notifications' &&
+            typeof query.queryKey[1] === 'number' &&
+            query.queryKey.length === 2,
+        },
+        (previous: unknown) => {
+          if (!previous || typeof previous !== 'object') return previous;
+          const maybe = previous as {
+            notifications?: NotificationItem[];
+            pagination?: { page: number; totalPages: number };
+          };
+          if (!Array.isArray(maybe.notifications)) return previous;
+
+          return {
+            ...maybe,
+            notifications: maybe.notifications.map((item) =>
+              item.isRead ? item : { ...item, isRead: true, readAt: item.readAt ?? nowIso },
+            ),
+          };
+        },
+      );
+
+      queryClient.setQueryData(queryKeys.unreadCount, { unreadCount: 0 });
+      queryClient.invalidateQueries({ queryKey: queryKeys.unreadCount });
+    },
+  });
+};
