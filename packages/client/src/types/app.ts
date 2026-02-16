@@ -40,6 +40,5 @@ export type GameSessionDto = {
     categories: string[];
   };
   currentRound: number;
-  currentTurnPlayerIndex: number;
   winnerId: string | null;
 };

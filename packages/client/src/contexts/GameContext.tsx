@@ -23,16 +23,16 @@ type GameState = {
   gameSession: GameSessionDto | null;
   currentQuestion: GameQuestion | null;
   timer: number;
-  myTurn: boolean;
+  hasSubmitted: boolean;
   scores: Record<string, number>;
   status: string;
 };
 
 type Action =
   | { type: 'SET_GAME_STATE'; payload: GameSessionDto }
-  | { type: 'TURN_START'; payload: { question: GameQuestion; isMyTurn: boolean } }
+  | { type: 'QUESTION_START'; payload: { question: GameQuestion } }
   | {
-      type: 'TURN_RESULT';
+      type: 'QUESTION_END';
       payload: { scores: Array<{ userId: string; score: number }> };
     }
   | { type: 'ROUND_END'; payload: { scores: Array<{ userId: string; score: number }> } }
@@ -41,6 +41,7 @@ type Action =
       payload: { winnerId: string | null; scores: Array<{ userId: string; score: number }> };
     }
   | { type: 'TIMER_TICK'; payload: { secondsLeft: number } }
+  | { type: 'ANSWER_SUBMITTED' }
   | { type: 'PLAYER_JOINED'; payload: { userId: string; username: string } }
   | { type: 'PLAYER_LEFT'; payload: { userId: string } }
   | { type: 'RESET' };
@@ -49,7 +50,7 @@ const initialState: GameState = {
   gameSession: null,
   currentQuestion: null,
   timer: 0,
-  myTurn: false,
+  hasSubmitted: false,
   scores: {},
   status: 'WAITING',
 };
@@ -69,17 +70,23 @@ function reducer(state: GameState, action: Action): GameState {
           action.payload.players.map((p) => ({ userId: p.userId, score: p.score })),
         ),
       };
-    case 'TURN_START':
+    case 'QUESTION_START':
       return {
         ...state,
         currentQuestion: action.payload.question,
-        myTurn: action.payload.isMyTurn,
+        hasSubmitted: false,
       };
-    case 'TURN_RESULT':
+    case 'QUESTION_END':
       return {
         ...state,
-        myTurn: false,
+        currentQuestion: null,
+        hasSubmitted: false,
         scores: scoresToMap(action.payload.scores),
+      };
+    case 'ANSWER_SUBMITTED':
+      return {
+        ...state,
+        hasSubmitted: true,
       };
     case 'ROUND_END':
       return {
@@ -102,7 +109,7 @@ function reducer(state: GameState, action: Action): GameState {
             }
           : state.gameSession,
         currentQuestion: null,
-        myTurn: false,
+        hasSubmitted: false,
         timer: 0,
         status: 'FINISHED',
         scores: finalScores,
@@ -137,18 +144,15 @@ export function GameProvider({ children }: PropsWithChildren) {
     dispatch({ type: 'SET_GAME_STATE', payload: payload as GameSessionDto });
   });
 
-  useSocketEvent('game:turnStart', (payload) => {
+  useSocketEvent('game:questionStart', (payload) => {
     dispatch({
-      type: 'TURN_START',
-      payload: {
-        question: payload.question,
-        isMyTurn: payload.turnPlayerId === user?.id,
-      },
+      type: 'QUESTION_START',
+      payload: { question: payload.question },
     });
   });
 
-  useSocketEvent('game:turnResult', (payload) => {
-    dispatch({ type: 'TURN_RESULT', payload: { scores: payload.scores } });
+  useSocketEvent('game:questionEnd', (payload) => {
+    dispatch({ type: 'QUESTION_END', payload: { scores: payload.scores } });
   });
 
   useSocketEvent('game:roundEnd', (payload) => {

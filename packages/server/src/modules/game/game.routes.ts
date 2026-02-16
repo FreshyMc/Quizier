@@ -42,7 +42,6 @@ const serializeGame = (session: {
     categories: Types.ObjectId[];
   };
   currentRound: number;
-  currentTurnPlayerIndex: number;
   winnerId?: Types.ObjectId | null;
   createdAt?: Date;
   updatedAt?: Date;
@@ -64,7 +63,6 @@ const serializeGame = (session: {
     categories: session.settings.categories.map((categoryId) => categoryId.toString()),
   },
   currentRound: session.currentRound,
-  currentTurnPlayerIndex: session.currentTurnPlayerIndex,
   winnerId: session.winnerId?.toString() ?? null,
   createdAt: session.createdAt,
   updatedAt: session.updatedAt,

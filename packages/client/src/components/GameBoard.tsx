@@ -4,20 +4,17 @@ import { TimerBar } from './TimerBar';
 import { QuestionCard } from './QuestionCard';
 import { PlayerList } from './PlayerList';
 import { useGame } from '../contexts/GameContext';
-import { useAuth } from '../contexts/AuthContext';
 
 export function GameBoard({ socket }: { socket: Socket | null }) {
-  const { state } = useGame();
-  const { user } = useAuth();
+  const { state, dispatch } = useGame();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
 
-  const activePlayerId =
-    state.gameSession?.players[state.gameSession.currentTurnPlayerIndex]?.userId;
-  const canAnswer = state.status === 'IN_PROGRESS' && activePlayerId === user?.id;
+  const canAnswer =
+    state.status === 'IN_PROGRESS' && state.currentQuestion !== null && !state.hasSubmitted;
 
   useEffect(() => {
     setSelectedOption(null);
-  }, [state.currentQuestion?.id, activePlayerId]);
+  }, [state.currentQuestion?.id]);
 
   const chooseAnswer = (option: number) => {
     setSelectedOption(option);
@@ -37,6 +34,8 @@ export function GameBoard({ socket }: { socket: Socket | null }) {
       roomCode,
       option: selectedOption,
     });
+
+    dispatch({ type: 'ANSWER_SUBMITTED' });
   };
 
   return (
@@ -57,11 +56,11 @@ export function GameBoard({ socket }: { socket: Socket | null }) {
           />
         ) : (
           <div className="rounded border border-slate-700 bg-slate-900 p-4 text-sm text-slate-300">
-            Waiting for next turn...
+            Waiting for next question...
           </div>
         )}
       </section>
-      <PlayerList players={state.gameSession?.players ?? []} activePlayerId={activePlayerId} />
+      <PlayerList players={state.gameSession?.players ?? []} />
     </div>
   );
 }
