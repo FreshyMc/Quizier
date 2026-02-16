@@ -11,7 +11,7 @@
     "test": "nx run-many -t test",
     "build": "nx run-many -t build",
     "verify:build": "nx run-many -t build --outputStyle=static",
-    "dev": "nx run-many -t dev --projects=server,client --parallel",
+    "dev": "nx run-many -t dev --projects=client,server --parallel=2 --outputStyle=stream",
     "dev:server": "nx run server:dev",
     "dev:client": "nx run client:dev"
   },
