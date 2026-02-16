@@ -741,6 +741,17 @@ const leaveGameRoom = async (fastify: FastifyInstance, roomCodeInput: string, us
     return;
   }
 
+  // Once a game is finished, keep the session + players intact so the final leaderboard
+  // remains available (until TTL cleanup). Treat "leave" as a disconnect.
+  if (session.status === GameStatus.FINISHED) {
+    session.players[playerIndex].isConnected = false;
+    await session.save();
+
+    io.to(roomCode).emit('game:playerLeft', { roomCode, userId });
+    emitStateUpdate(io, session.toObject());
+    return;
+  }
+
   const isHostLeaving = session.hostId.toString() === userId;
 
   session.players.splice(playerIndex, 1);
@@ -769,7 +780,7 @@ const markDisconnected = async (fastify: FastifyInstance, userId: string) => {
   }
 
   const sessions = await GameSessionModel.find({
-    status: { $in: [GameStatus.WAITING, GameStatus.IN_PROGRESS] },
+    status: { $in: [GameStatus.WAITING, GameStatus.IN_PROGRESS, GameStatus.FINISHED] },
     'players.userId': userId,
   });
 
@@ -782,6 +793,10 @@ const markDisconnected = async (fastify: FastifyInstance, userId: string) => {
     player.isConnected = false;
     await session.save();
     emitStateUpdate(io, session.toObject());
+
+    if (session.status === GameStatus.FINISHED) {
+      continue;
+    }
 
     const key = disconnectKey(session.roomCode, userId);
     const existing = disconnectGraceTimers.get(key);
