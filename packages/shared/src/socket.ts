@@ -20,14 +20,11 @@ export interface ServerToClientEvents {
     hostId: string;
     players: Array<{ userId: string; username: string; score: number; isConnected: boolean }>;
     currentRound: number;
-    currentTurnPlayerIndex: number;
     winnerId?: string | null;
   }) => void;
-  'game:turnStart': (payload: {
+  'game:questionStart': (payload: {
     roomCode: string;
     roundNumber: number;
-    turnPlayerId: string;
-    turnPlayerUsername: string;
     question: {
       id: string;
       text: string;
@@ -37,15 +34,17 @@ export interface ServerToClientEvents {
     };
     secondsLeft: number;
   }) => void;
-  'game:turnResult': (payload: {
+  'game:questionEnd': (payload: {
     roomCode: string;
     roundNumber: number;
-    playerId: string;
-    selectedOption: number | null;
     correctIndex: number;
-    isCorrect: boolean;
-    timeSpent: number;
-    timedOut: boolean;
+    answers: Array<{
+      userId: string;
+      selectedOption: number | null;
+      isCorrect: boolean;
+      timeSpent: number;
+      timedOut: boolean;
+    }>;
     scores: Array<{ userId: string; score: number }>;
   }) => void;
   'game:roundEnd': (payload: {

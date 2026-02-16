@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 
 import { loginSchema, registerSchema } from '@quizier/shared';
+import { formatValidationErrorMessage } from '../../utils/validation.js';
 import { authenticate } from './auth.middleware.js';
 import { authCookieNames, login, logout, me, refresh, register } from './auth.service.js';
 
@@ -14,7 +15,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/register', async (request, reply) => {
     const parsed = registerSchema.safeParse(request.body);
     if (!parsed.success) {
-      throw createHttpError(400, parsed.error.issues[0]?.message ?? 'Invalid request body');
+      throw createHttpError(400, formatValidationErrorMessage(parsed.error));
     }
 
     return register(fastify, parsed.data, reply);
@@ -23,7 +24,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/login', async (request, reply) => {
     const parsed = loginSchema.safeParse(request.body);
     if (!parsed.success) {
-      throw createHttpError(400, parsed.error.issues[0]?.message ?? 'Invalid request body');
+      throw createHttpError(400, formatValidationErrorMessage(parsed.error));
     }
 
     return login(fastify, parsed.data, reply);

@@ -7,28 +7,49 @@ import { GameSessionModel } from '../../models/game-session.model.js';
 import { PlayerStatsModel } from '../../models/player-stats.model.js';
 import { QuestionModel } from '../../models/question.model.js';
 import { UserModel } from '../../models/user.model.js';
+import { createHttpError, normalizeHttpError } from '../../utils/error.js';
 
 type TypedIo = SocketIOServer<ClientToServerEvents, ServerToClientEvents>;
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 type ActiveTurn = {
   roomCode: string;
-  userId: string;
   startedAt: number;
   intervalId?: NodeJS.Timeout;
   timeoutId?: NodeJS.Timeout;
 };
 
-const activeTurns = new Map<string, ActiveTurn>();
+const activeRounds = new Map<string, ActiveTurn>();
 const disconnectGraceTimers = new Map<string, NodeJS.Timeout>();
 
-const createHttpError = (statusCode: number, message: string) => {
-  const error = new Error(message) as Error & { statusCode: number };
-  error.statusCode = statusCode;
-  return error;
+const disconnectKey = (roomCode: string, userId: string) => `${roomCode}:${userId}`;
+
+const logSocketError = (
+  fastify: FastifyInstance,
+  context: string,
+  error: unknown,
+  metadata?: Record<string, unknown>,
+) => {
+  const normalized = normalizeHttpError(error);
+  const logger = normalized.statusCode >= 500 ? fastify.log.error : fastify.log.warn;
+  logger.call(fastify.log, {
+    err: normalized.error,
+    context,
+    statusCode: normalized.statusCode,
+    ...metadata,
+  });
 };
 
-const disconnectKey = (roomCode: string, userId: string) => `${roomCode}:${userId}`;
+const runSocketTask = (
+  fastify: FastifyInstance,
+  context: string,
+  task: () => Promise<void>,
+  metadata?: Record<string, unknown>,
+) => {
+  void task().catch((error) => {
+    logSocketError(fastify, context, error, metadata);
+  });
+};
 
 const toStatePayload = (session: {
   roomCode: string;
@@ -36,7 +57,6 @@ const toStatePayload = (session: {
   hostId: Types.ObjectId;
   players: Array<{ userId: Types.ObjectId; username: string; score: number; isConnected: boolean }>;
   currentRound: number;
-  currentTurnPlayerIndex: number;
   winnerId?: Types.ObjectId | null;
 }) => ({
   roomCode: session.roomCode,
@@ -49,7 +69,6 @@ const toStatePayload = (session: {
     isConnected: player.isConnected,
   })),
   currentRound: session.currentRound,
-  currentTurnPlayerIndex: session.currentTurnPlayerIndex,
   winnerId: session.winnerId?.toString() ?? null,
 });
 
@@ -66,7 +85,6 @@ const emitStateUpdate = (
       isConnected: boolean;
     }>;
     currentRound: number;
-    currentTurnPlayerIndex: number;
     winnerId?: Types.ObjectId | null;
   },
 ) => {
@@ -91,21 +109,21 @@ const emitRoundEnd = (
   });
 };
 
-const clearTurnTimer = (roomCode: string) => {
-  const turn = activeTurns.get(roomCode);
-  if (!turn) {
+const clearRoundTimer = (roomCode: string) => {
+  const round = activeRounds.get(roomCode);
+  if (!round) {
     return;
   }
 
-  if (turn.intervalId) {
-    clearInterval(turn.intervalId);
+  if (round.intervalId) {
+    clearInterval(round.intervalId);
   }
 
-  if (turn.timeoutId) {
-    clearTimeout(turn.timeoutId);
+  if (round.timeoutId) {
+    clearTimeout(round.timeoutId);
   }
 
-  activeTurns.delete(roomCode);
+  activeRounds.delete(roomCode);
 };
 
 const ensureRoomCode = async () => {
@@ -173,28 +191,26 @@ const buildRounds = async (session: {
     const categoryKey = categoryId.toString();
     const categoryQuestions = byCategory.get(categoryKey) ?? [];
 
-    const roundQuestions = session.players.map(() => {
-      let question: { _id: Types.ObjectId; categoryId: Types.ObjectId } | undefined;
+    let question: { _id: Types.ObjectId; categoryId: Types.ObjectId } | undefined;
 
-      if (categoryQuestions.length > 0) {
-        const cursor = categoryCursor.get(categoryKey) ?? 0;
-        question = categoryQuestions[cursor % categoryQuestions.length];
-        categoryCursor.set(categoryKey, cursor + 1);
-      }
+    if (categoryQuestions.length > 0) {
+      const cursor = categoryCursor.get(categoryKey) ?? 0;
+      question = categoryQuestions[cursor % categoryQuestions.length];
+      categoryCursor.set(categoryKey, cursor + 1);
+    }
 
-      if (!question) {
-        question = fallbackPool[fallbackIndex % fallbackPool.length];
-        fallbackIndex += 1;
-      }
+    if (!question) {
+      question = fallbackPool[fallbackIndex % fallbackPool.length];
+      fallbackIndex += 1;
+    }
 
-      return {
-        questionId: question._id,
-        answeredBy: null,
-        selectedOption: null,
-        isCorrect: false as const,
-        timeSpent: 0 as const,
-      };
-    });
+    const roundQuestions = session.players.map(() => ({
+      questionId: question!._id,
+      answeredBy: null,
+      selectedOption: null,
+      isCorrect: false as const,
+      timeSpent: 0 as const,
+    }));
 
     rounds.push({
       roundNumber,
@@ -321,7 +337,7 @@ const updateFinalStats = async (session: {
 };
 
 const finishGame = async (fastify: FastifyInstance, roomCode: string) => {
-  clearTurnTimer(roomCode);
+  clearRoundTimer(roomCode);
 
   const io = fastify.io as TypedIo | undefined;
   if (!io) {
@@ -345,6 +361,7 @@ const finishGame = async (fastify: FastifyInstance, roomCode: string) => {
 
   session.status = GameStatus.FINISHED;
   session.winnerId = winnerId;
+  session.set('finishedAt', new Date());
   await session.save();
 
   await updateFinalStats(session.toObject());
@@ -361,7 +378,109 @@ const finishGame = async (fastify: FastifyInstance, roomCode: string) => {
   emitStateUpdate(io, session.toObject());
 };
 
-const startTurn = async (fastify: FastifyInstance, roomCode: string): Promise<void> => {
+const endRound = async (
+  fastify: FastifyInstance,
+  roomCode: string,
+  reason: 'timeout' | 'allAnswered',
+): Promise<void> => {
+  const io = fastify.io as TypedIo | undefined;
+  if (!io) {
+    return;
+  }
+
+  const roundState = activeRounds.get(roomCode);
+  if (!roundState) {
+    return;
+  }
+
+  clearRoundTimer(roomCode);
+
+  const session = await GameSessionModel.findOne({ roomCode });
+  if (!session || session.status !== GameStatus.IN_PROGRESS) {
+    return;
+  }
+
+  const roundIndex = session.currentRound;
+  const round = session.rounds[roundIndex];
+  const roundQuestion = round?.questions[0];
+
+  if (!round || !roundQuestion) {
+    await finishGame(fastify, roomCode);
+    return;
+  }
+
+  const question = await QuestionModel.findById(roundQuestion.questionId)
+    .select('_id correctIndex')
+    .lean();
+
+  if (!question) {
+    await finishGame(fastify, roomCode);
+    return;
+  }
+
+  const answers = session.players.map((player, playerIndex) => {
+    const entry = round.questions[playerIndex];
+
+    const timedOut = !entry?.answeredBy;
+    if (!entry) {
+      return {
+        userId: player.userId.toString(),
+        selectedOption: null,
+        isCorrect: false,
+        timeSpent: session.settings.timePerTurn,
+        timedOut: true,
+      };
+    }
+
+    if (timedOut) {
+      entry.selectedOption = null;
+      entry.isCorrect = false;
+      entry.timeSpent = session.settings.timePerTurn;
+    }
+
+    return {
+      userId: player.userId.toString(),
+      selectedOption: timedOut ? null : (entry.selectedOption as number | null),
+      isCorrect: entry.isCorrect,
+      timeSpent: entry.timeSpent,
+      timedOut,
+    };
+  });
+
+  session.currentRound = roundIndex + 1;
+  await session.save();
+
+  io.to(roomCode).emit('game:questionEnd', {
+    roomCode,
+    roundNumber: roundIndex + 1,
+    correctIndex: question.correctIndex,
+    answers,
+    scores: session.players.map((item) => ({
+      userId: item.userId.toString(),
+      score: item.score,
+    })),
+  });
+
+  io.to(roomCode).emit('game:roundEnd', {
+    roomCode,
+    roundNumber: roundIndex + 1,
+    scores: session.players.map((player) => ({
+      userId: player.userId.toString(),
+      score: player.score,
+    })),
+  });
+
+  emitStateUpdate(io, session.toObject());
+
+  if (session.currentRound >= session.rounds.length) {
+    await finishGame(fastify, roomCode);
+    return;
+  }
+
+  await startRound(fastify, roomCode);
+};
+
+const startRound = async (fastify: FastifyInstance, roomCode: string): Promise<void> => {
   const io = fastify.io as TypedIo | undefined;
   if (!io) {
     return;
@@ -377,34 +496,16 @@ const startTurn = async (fastify: FastifyInstance, roomCode: string): Promise<vo
     return;
   }
 
-  if (session.currentTurnPlayerIndex >= session.players.length) {
-    emitRoundEnd(io, session.toObject());
-    session.currentRound += 1;
-    session.currentTurnPlayerIndex = 0;
-    await session.save();
-
-    if (session.currentRound >= session.rounds.length) {
-      await finishGame(fastify, roomCode);
-      return;
-    }
-  }
-
   const refreshed = await GameSessionModel.findOne({ roomCode });
   if (!refreshed || refreshed.status !== GameStatus.IN_PROGRESS) {
     return;
   }
 
   const round = refreshed.rounds[refreshed.currentRound];
-  const player = refreshed.players[refreshed.currentTurnPlayerIndex];
-  const roundQuestion = round?.questions[refreshed.currentTurnPlayerIndex];
+  const roundQuestion = round?.questions[0];
 
-  if (!round || !player || !roundQuestion) {
+  if (!round || !roundQuestion) {
     await finishGame(fastify, roomCode);
-    return;
-  }
-
-  if (!player.isConnected) {
-    await processAnswer(fastify, roomCode, player.userId.toString(), null, true);
     return;
   }
 
@@ -413,17 +514,15 @@ const startTurn = async (fastify: FastifyInstance, roomCode: string): Promise<vo
     .lean();
 
   if (!question) {
-    await processAnswer(fastify, roomCode, player.userId.toString(), null, true);
+    await finishGame(fastify, roomCode);
     return;
   }
 
   const secondsLeft = refreshed.settings.timePerTurn;
 
-  io.to(roomCode).emit('game:turnStart', {
+  io.to(roomCode).emit('game:questionStart', {
     roomCode,
     roundNumber: refreshed.currentRound + 1,
-    turnPlayerId: player.userId.toString(),
-    turnPlayerUsername: player.username,
     question: {
       id: question._id.toString(),
       text: question.text,
@@ -436,23 +535,24 @@ const startTurn = async (fastify: FastifyInstance, roomCode: string): Promise<vo
 
   io.to(roomCode).emit('game:timerTick', { secondsLeft });
 
-  const turnState: ActiveTurn = {
+  const roundState: ActiveTurn = {
     roomCode,
-    userId: player.userId.toString(),
     startedAt: Date.now(),
   };
 
   let currentSeconds = secondsLeft;
-  turnState.intervalId = setInterval(() => {
+  roundState.intervalId = setInterval(() => {
     currentSeconds -= 1;
     io.to(roomCode).emit('game:timerTick', { secondsLeft: Math.max(0, currentSeconds) });
   }, 1000);
 
-  turnState.timeoutId = setTimeout(async () => {
-    await processAnswer(fastify, roomCode, player.userId.toString(), null, true);
+  roundState.timeoutId = setTimeout(async () => {
+    runSocketTask(fastify, 'round-timeout', () => endRound(fastify, roomCode, 'timeout'), {
+      roomCode,
+    });
   }, secondsLeft * 1000);
 
-  activeTurns.set(roomCode, turnState);
+  activeRounds.set(roomCode, roundState);
 };
 
 const processAnswer = async (
@@ -460,33 +560,34 @@ const processAnswer = async (
   roomCode: string,
   userId: string,
   selectedOption: number | null,
-  timedOut = false,
 ): Promise<void> => {
   const io = fastify.io as TypedIo | undefined;
   if (!io) {
     return;
   }
 
-  const turn = activeTurns.get(roomCode);
-  if (!turn || turn.userId !== userId) {
+  const roundState = activeRounds.get(roomCode);
+  if (!roundState) {
     return;
   }
-
-  clearTurnTimer(roomCode);
 
   const session = await GameSessionModel.findOne({ roomCode });
   if (!session || session.status !== GameStatus.IN_PROGRESS) {
     return;
   }
 
-  const playerIndex = session.currentTurnPlayerIndex;
   const roundIndex = session.currentRound;
   const round = session.rounds[roundIndex];
-  const player = session.players[playerIndex];
-  const roundQuestion = round?.questions[playerIndex];
+  const playerIndex = session.players.findIndex((player) => player.userId.toString() === userId);
+  const player = playerIndex >= 0 ? session.players[playerIndex] : null;
+  const roundQuestion = playerIndex >= 0 ? round?.questions[playerIndex] : null;
 
   if (!round || !player || !roundQuestion) {
     await finishGame(fastify, roomCode);
+    return;
+  }
+
+  if (roundQuestion.answeredBy) {
     return;
   }
 
@@ -501,14 +602,13 @@ const processAnswer = async (
 
   const elapsedSeconds = Math.min(
     session.settings.timePerTurn,
-    Math.max(0, Math.round((Date.now() - turn.startedAt) / 1000)),
+    Math.max(0, Math.round((Date.now() - roundState.startedAt) / 1000)),
   );
 
-  const isCorrect =
-    !timedOut && selectedOption !== null && selectedOption === question.correctIndex;
+  const isCorrect = selectedOption !== null && selectedOption === question.correctIndex;
 
   roundQuestion.answeredBy = new Types.ObjectId(userId);
-  roundQuestion.selectedOption = timedOut ? null : selectedOption;
+  roundQuestion.selectedOption = selectedOption;
   roundQuestion.isCorrect = isCorrect;
   roundQuestion.timeSpent = elapsedSeconds;
 
@@ -516,26 +616,14 @@ const processAnswer = async (
     player.score += 10;
   }
 
-  session.currentTurnPlayerIndex += 1;
   await session.save();
 
-  io.to(roomCode).emit('game:turnResult', {
-    roomCode,
-    roundNumber: roundIndex + 1,
-    playerId: player.userId.toString(),
-    selectedOption: timedOut ? null : selectedOption,
-    correctIndex: question.correctIndex,
-    isCorrect,
-    timeSpent: elapsedSeconds,
-    timedOut,
-    scores: session.players.map((item) => ({
-      userId: item.userId.toString(),
-      score: item.score,
-    })),
-  });
-
-  emitStateUpdate(io, session.toObject());
-  await startTurn(fastify, roomCode);
+  const allAnswered = session.players.every((_, index) =>
+    Boolean(round.questions[index]?.answeredBy),
+  );
+  if (allAnswered) {
+    await endRound(fastify, roomCode, 'allAnswered');
+  }
 };
 
 const startGame = async (fastify: FastifyInstance, roomCode: string, hostId: string) => {
@@ -565,11 +653,10 @@ const startGame = async (fastify: FastifyInstance, roomCode: string, hostId: str
   session.set('rounds', rounds as unknown as object[]);
   session.status = GameStatus.IN_PROGRESS;
   session.currentRound = 0;
-  session.currentTurnPlayerIndex = 0;
   await session.save();
 
   emitStateUpdate(io, session.toObject());
-  await startTurn(fastify, roomCode);
+  await startRound(fastify, roomCode);
 };
 
 const joinGameRoom = async (
@@ -591,7 +678,6 @@ const joinGameRoom = async (
       hostId: '',
       players: [],
       currentRound: 0,
-      currentTurnPlayerIndex: 0,
       winnerId: null,
     });
     return;
@@ -655,23 +741,30 @@ const leaveGameRoom = async (fastify: FastifyInstance, roomCodeInput: string, us
     return;
   }
 
+  // Once a game is finished, keep the session + players intact so the final leaderboard
+  // remains available (until TTL cleanup). Treat "leave" as a disconnect.
+  if (session.status === GameStatus.FINISHED) {
+    session.players[playerIndex].isConnected = false;
+    await session.save();
+
+    io.to(roomCode).emit('game:playerLeft', { roomCode, userId });
+    emitStateUpdate(io, session.toObject());
+    return;
+  }
+
   const isHostLeaving = session.hostId.toString() === userId;
 
   session.players.splice(playerIndex, 1);
 
   if (!session.players.length) {
     await GameSessionModel.deleteOne({ _id: session._id });
-    clearTurnTimer(roomCode);
+    clearRoundTimer(roomCode);
     io.to(roomCode).emit('game:playerLeft', { roomCode, userId });
     return;
   }
 
   if (isHostLeaving) {
     session.hostId = session.players[0].userId;
-  }
-
-  if (session.currentTurnPlayerIndex >= session.players.length) {
-    session.currentTurnPlayerIndex = 0;
   }
 
   await session.save();
@@ -687,7 +780,7 @@ const markDisconnected = async (fastify: FastifyInstance, userId: string) => {
   }
 
   const sessions = await GameSessionModel.find({
-    status: { $in: [GameStatus.WAITING, GameStatus.IN_PROGRESS] },
+    status: { $in: [GameStatus.WAITING, GameStatus.IN_PROGRESS, GameStatus.FINISHED] },
     'players.userId': userId,
   });
 
@@ -701,6 +794,10 @@ const markDisconnected = async (fastify: FastifyInstance, userId: string) => {
     await session.save();
     emitStateUpdate(io, session.toObject());
 
+    if (session.status === GameStatus.FINISHED) {
+      continue;
+    }
+
     const key = disconnectKey(session.roomCode, userId);
     const existing = disconnectGraceTimers.get(key);
     if (existing) {
@@ -710,24 +807,28 @@ const markDisconnected = async (fastify: FastifyInstance, userId: string) => {
     disconnectGraceTimers.set(
       key,
       setTimeout(async () => {
-        disconnectGraceTimers.delete(key);
+        runSocketTask(
+          fastify,
+          'disconnect-grace-timeout',
+          async () => {
+            disconnectGraceTimers.delete(key);
 
-        const staleSession = await GameSessionModel.findOne({ roomCode: session.roomCode });
-        if (!staleSession || staleSession.status !== GameStatus.IN_PROGRESS) {
-          return;
-        }
+            const staleSession = await GameSessionModel.findOne({ roomCode: session.roomCode });
+            if (!staleSession || staleSession.status !== GameStatus.IN_PROGRESS) {
+              return;
+            }
 
-        const stalePlayer = staleSession.players.find((item) => item.userId.toString() === userId);
-        if (!stalePlayer || stalePlayer.isConnected) {
-          return;
-        }
+            const stalePlayer = staleSession.players.find(
+              (item) => item.userId.toString() === userId,
+            );
+            if (!stalePlayer || stalePlayer.isConnected) {
+              return;
+            }
 
-        if (
-          staleSession.players[staleSession.currentTurnPlayerIndex]?.userId.toString() === userId &&
-          activeTurns.has(staleSession.roomCode)
-        ) {
-          await processAnswer(fastify, staleSession.roomCode, userId, null, true);
-        }
+            // In simultaneous mode, disconnected players will simply time out with the round.
+          },
+          { roomCode: session.roomCode, userId },
+        );
       }, 60000),
     );
   }
@@ -739,61 +840,112 @@ export const setupGameSocket = (fastify: FastifyInstance) => {
     throw new Error('Socket server must be initialized before game socket setup');
   }
 
-  io.on('connection', async (socket: TypedSocket) => {
-    const userId = String(socket.data.userId ?? '');
-    if (!userId) {
-      return;
-    }
+  io.on('connection', (socket: TypedSocket) => {
+    runSocketTask(
+      fastify,
+      'connection-init',
+      async () => {
+        const userId = String(socket.data.userId ?? '');
+        if (!userId) {
+          return;
+        }
 
-    const user = await UserModel.findById(userId).select('username').lean();
-    socket.data.username = user?.username ?? 'Player';
+        const user = await UserModel.findById(userId).select('username').lean();
+        socket.data.username = user?.username ?? 'Player';
 
-    const sessions = await GameSessionModel.find({
-      status: { $in: [GameStatus.WAITING, GameStatus.IN_PROGRESS] },
-      'players.userId': userId,
-    });
+        const sessions = await GameSessionModel.find({
+          status: { $in: [GameStatus.WAITING, GameStatus.IN_PROGRESS] },
+          'players.userId': userId,
+        });
 
-    for (const session of sessions) {
-      socket.join(session.roomCode);
-      const player = session.players.find((item) => item.userId.toString() === userId);
-      if (player) {
-        player.isConnected = true;
+        for (const session of sessions) {
+          socket.join(session.roomCode);
+          const player = session.players.find((item) => item.userId.toString() === userId);
+          if (player) {
+            player.isConnected = true;
+          }
+          await session.save();
+          emitStateUpdate(io, session.toObject());
+
+          const key = disconnectKey(session.roomCode, userId);
+          const timer = disconnectGraceTimers.get(key);
+          if (timer) {
+            clearTimeout(timer);
+            disconnectGraceTimers.delete(key);
+          }
+        }
+
+        socket.on('game:join', ({ roomCode }) => {
+          runSocketTask(fastify, 'game:join', () => joinGameRoom(fastify, socket, roomCode), {
+            roomCode,
+            userId,
+          });
+        });
+
+        socket.on('game:leave', ({ roomCode }) => {
+          runSocketTask(
+            fastify,
+            'game:leave',
+            async () => {
+              await leaveGameRoom(fastify, roomCode, userId);
+              socket.leave(roomCode);
+            },
+            { roomCode, userId },
+          );
+        });
+
+        socket.on('game:start', ({ roomCode }) => {
+          runSocketTask(
+            fastify,
+            'game:start',
+            () => startGame(fastify, roomCode.trim().toUpperCase(), userId),
+            { roomCode, userId },
+          );
+        });
+
+        socket.on('game:startRound', ({ roomCode }) => {
+          runSocketTask(
+            fastify,
+            'game:startRound',
+            () => startGame(fastify, roomCode.trim().toUpperCase(), userId),
+            { roomCode, userId },
+          );
+        });
+
+        socket.on('game:answer', ({ roomCode, option }) => {
+          runSocketTask(
+            fastify,
+            'game:answer',
+            () => processAnswer(fastify, roomCode.trim().toUpperCase(), userId, option),
+            { roomCode, userId },
+          );
+        });
+
+        socket.on('disconnect', () => {
+          runSocketTask(fastify, 'socket-disconnect', () => markDisconnected(fastify, userId), {
+            userId,
+          });
+        });
+      },
+      { socketId: socket.id },
+    );
+  });
+
+  fastify.addHook('onClose', async () => {
+    for (const round of activeRounds.values()) {
+      if (round.intervalId) {
+        clearInterval(round.intervalId);
       }
-      await session.save();
-      emitStateUpdate(io, session.toObject());
-
-      const key = disconnectKey(session.roomCode, userId);
-      const timer = disconnectGraceTimers.get(key);
-      if (timer) {
-        clearTimeout(timer);
-        disconnectGraceTimers.delete(key);
+      if (round.timeoutId) {
+        clearTimeout(round.timeoutId);
       }
     }
+    activeRounds.clear();
 
-    socket.on('game:join', async ({ roomCode }) => {
-      await joinGameRoom(fastify, socket, roomCode);
-    });
-
-    socket.on('game:leave', async ({ roomCode }) => {
-      await leaveGameRoom(fastify, roomCode, userId);
-      socket.leave(roomCode);
-    });
-
-    socket.on('game:start', async ({ roomCode }) => {
-      await startGame(fastify, roomCode.trim().toUpperCase(), userId);
-    });
-
-    socket.on('game:startRound', async ({ roomCode }) => {
-      await startGame(fastify, roomCode.trim().toUpperCase(), userId);
-    });
-
-    socket.on('game:answer', async ({ roomCode, option }) => {
-      await processAnswer(fastify, roomCode.trim().toUpperCase(), userId, option, false);
-    });
-
-    socket.on('disconnect', async () => {
-      await markDisconnected(fastify, userId);
-    });
+    for (const timer of disconnectGraceTimers.values()) {
+      clearTimeout(timer);
+    }
+    disconnectGraceTimers.clear();
   });
 };
 
@@ -827,7 +979,6 @@ export const createGameSession = async (input: {
     },
     rounds: [],
     currentRound: 0,
-    currentTurnPlayerIndex: 0,
     winnerId: null,
   });
 

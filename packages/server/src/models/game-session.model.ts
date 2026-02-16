@@ -66,6 +66,7 @@ const gameSessionSchema = new Schema(
     currentRound: { type: Number, default: 0, min: 0 },
     currentTurnPlayerIndex: { type: Number, default: 0, min: 0 },
     winnerId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    finishedAt: { type: Date, default: null },
   },
   {
     timestamps: true,
@@ -73,6 +74,16 @@ const gameSessionSchema = new Schema(
 );
 
 gameSessionSchema.index({ roomCode: 1 }, { unique: true });
+
+// Automatically remove finished game sessions after 5 days.
+// TTL indexes only work on Date fields. We use a partial index so sessions without finishedAt are unaffected.
+gameSessionSchema.index(
+  { finishedAt: 1 },
+  {
+    expireAfterSeconds: 60 * 60 * 24 * 5,
+    partialFilterExpression: { finishedAt: { $type: 'date' } },
+  },
+);
 
 export type GameSession = InferSchemaType<typeof gameSessionSchema>;
 export const GameSessionModel = model('GameSession', gameSessionSchema);

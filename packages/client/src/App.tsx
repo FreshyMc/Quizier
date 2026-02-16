@@ -1,12 +1,18 @@
+import { QueryClientProvider } from '@tanstack/react-query';
+import { RouterProvider } from 'react-router';
+import { AuthProvider } from './contexts/AuthContext';
+import { SocketProvider } from './contexts/SocketContext';
+import { queryClient } from './lib/query-client';
+import { appRouter } from './routes/AppRouter';
+
 export function App() {
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-3xl px-6 py-16">
-        <h1 className="text-4xl font-bold">Quizier</h1>
-        <p className="mt-3 text-slate-300">
-          Project scaffold ready. Start building the game modules.
-        </p>
-      </div>
-    </main>
+    <AuthProvider>
+      <SocketProvider>
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={appRouter} />
+        </QueryClientProvider>
+      </SocketProvider>
+    </AuthProvider>
   );
 }

@@ -3,11 +3,12 @@ import { randomBytes } from 'node:crypto';
 import mongoose from 'mongoose';
 import { UserRole } from '@quizier/shared';
 
+import { env } from '../src/config/env.js';
 import { UserModel } from '../src/models/user.model.js';
 
-const adminEmail = process.env.ADMIN_EMAIL;
-const adminPassword = process.env.ADMIN_PASSWORD;
-const mongodbUri = process.env.MONGODB_URI;
+const adminEmail = env.adminEmail;
+const adminPassword = env.adminPassword;
+const mongodbUri = env.mongodbUri;
 
 if (!adminEmail || !adminPassword) {
   throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be set before running seed');
