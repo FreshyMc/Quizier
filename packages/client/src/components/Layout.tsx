@@ -22,11 +22,10 @@ export function Layout() {
     <div className="min-h-screen bg-slate-950 text-white">
       <header className="border-b border-slate-800 bg-slate-900/70">
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-          <h1 className="text-2xl font-bold">Quizier</h1>
+          <h1 className="text-2xl font-bold">
+            <Link to="/dashboard">Quizier</Link>
+          </h1>
           <nav className="flex flex-wrap items-center gap-3 text-sm">
-            <Link to="/dashboard" className="hover:text-blue-300">
-              Dashboard
-            </Link>
             <Link to="/game/create" className="hover:text-blue-300">
               Create Game
             </Link>
