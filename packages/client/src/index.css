@@ -12,6 +12,12 @@
 
 body {
   margin: 0;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
 }
 
 @layer base {
@@ -29,6 +35,6 @@ body {
   input:not([type='checkbox']):not([type='radio']):focus,
   textarea:focus,
   select:focus {
-    @apply border-slate-400 outline-none ring-2 ring-blue-500/40;
+    @apply border-slate-400 outline-none;
   }
 }

@@ -60,7 +60,9 @@ function suspense(element: JSX.Element) {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center p-6 text-sm opacity-70">Loading…</div>
+        <div className="flex w-full min-h-screen items-center justify-center p-6 text-sm opacity-70">
+          Loading…
+        </div>
       }
     >
       {element}

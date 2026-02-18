@@ -69,7 +69,7 @@ export function ModerationQueue() {
                       Approve
                     </LoadingButton>
                     <LoadingButton
-                      className="inline-flex items-center gap-1 rounded bg-rose-700 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-60"
+                      variant="archive"
                       onClick={() => void reject(submission.id)}
                       disabled={isBusy}
                       isLoading={isRejecting}
