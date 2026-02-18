@@ -29,7 +29,7 @@ const GameOption = ({
           type="button"
           data-player-count={option}
           onClick={(e) => onChange(Number(e.currentTarget.dataset.playerCount))}
-          className={`rounded py-2.5 text-lg ${option === value ? 'bg-blue-600' : 'bg-slate-800'}`}
+          className={`cursor-pointer rounded py-2.5 text-lg ${option === value ? 'bg-blue-600' : 'bg-slate-800'}`}
         >
           {option}
         </button>

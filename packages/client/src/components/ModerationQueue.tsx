@@ -59,7 +59,7 @@ export function ModerationQueue() {
                 return (
                   <>
                     <LoadingButton
-                      className="inline-flex items-center gap-1 rounded bg-emerald-700 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-60"
+                      variant="primary"
                       onClick={() => void approve(submission.id)}
                       disabled={isBusy}
                       isLoading={isApproving}
@@ -69,7 +69,7 @@ export function ModerationQueue() {
                       Approve
                     </LoadingButton>
                     <LoadingButton
-                      variant="archive"
+                      variant="danger"
                       onClick={() => void reject(submission.id)}
                       disabled={isBusy}
                       isLoading={isRejecting}
