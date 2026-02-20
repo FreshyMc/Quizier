@@ -1,18 +1,21 @@
-import { Link } from 'react-router';
+import { Container } from '@client/components/Container';
+import { LinkButton } from '@client/components/LinkButton';
 
 export function LandingPage() {
   return (
-    <main className="mx-auto max-w-3xl space-y-4 px-6 py-16 text-center">
-      <h1 className="text-4xl font-bold text-white">Quizier</h1>
-      <p className="text-slate-300">Real-time multiplayer quiz platform.</p>
-      <div className="flex justify-center gap-3">
-        <Link className="rounded bg-blue-600 px-4 py-2 text-sm text-white" to="/login">
-          Login
-        </Link>
-        <Link className="rounded bg-slate-700 px-4 py-2 text-sm text-white" to="/register">
-          Register
-        </Link>
+    <Container variant="main" alignment="center">
+      <div className="flex flex-col gap-5">
+        <h1 className="text-6xl font-bold text-white text-center text-shadow-lg/30">Quizier</h1>
+        <div className="call-to-action-area flex flex-col gap-5 py-5 px-10 bg-white rounded shadow-lg text-center">
+          <p className="text-black text-lg">Real-time multiplayer quiz platform.</p>
+          <div className="flex justify-center gap-3">
+            <LinkButton to="/login">Login</LinkButton>
+            <LinkButton to="/register" variant="secondary">
+              Register
+            </LinkButton>
+          </div>
+        </div>
       </div>
-    </main>
+    </Container>
   );
 }

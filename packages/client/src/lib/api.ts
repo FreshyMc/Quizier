@@ -1,25 +1,85 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+const AUTH_REFRESH_PATH = '/api/auth/refresh';
+const AUTH_LOGIN_PATH = '/api/auth/login';
+const AUTH_REGISTER_PATH = '/api/auth/register';
+const AUTH_LOGOUT_PATH = '/api/auth/logout';
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+const notifyAuthLogout = () => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event('auth:logout'));
+};
+
+const shouldAttemptRefresh = (path: string) => {
+  if (path === AUTH_REFRESH_PATH) return false;
+  if (path === AUTH_LOGIN_PATH) return false;
+  if (path === AUTH_REGISTER_PATH) return false;
+  if (path === AUTH_LOGOUT_PATH) return false;
+  return true;
+};
+
+async function refreshSession(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}${AUTH_REFRESH_PATH}`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      return response.ok;
+    } catch {
+      return false;
+    }
+  })().finally(() => {
+    refreshInFlight = null;
+  });
+
+  return refreshInFlight;
+}
+
+async function readErrorMessage(response: Response) {
+  let message = `Request failed with ${response.status}`;
+  try {
+    const data = (await response.json()) as { message?: string; error?: string };
+    message = data.message ?? data.error ?? message;
+  } catch {
+    // ignore parse errors
+  }
+  return message;
+}
+
+async function doFetch(path: string, init?: RequestInit) {
   const headers = new Headers(init?.headers);
   if (init?.body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return fetch(`${API_BASE_URL}${path}`, {
     credentials: 'include',
     headers,
     ...init,
   });
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  let response = await doFetch(path, init);
+
+  if (response.status === 401 && shouldAttemptRefresh(path)) {
+    const refreshed = await refreshSession();
+
+    if (refreshed) {
+      response = await doFetch(path, init);
+    } else {
+      notifyAuthLogout();
+    }
+  }
 
   if (!response.ok) {
-    let message = `Request failed with ${response.status}`;
-    try {
-      const data = (await response.json()) as { message?: string; error?: string };
-      message = data.message ?? data.error ?? message;
-    } catch {
-      // ignore parse errors
-    }
+    const message = await readErrorMessage(response);
     throw new Error(message);
   }
 

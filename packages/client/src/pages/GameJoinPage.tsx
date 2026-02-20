@@ -42,25 +42,28 @@ export function GameJoinPage() {
       onSubmit={onSubmit}
     >
       <h1 className="text-xl font-semibold">Join Game</h1>
-      <input
-        className="w-full rounded bg-slate-800 p-2 text-sm uppercase"
-        value={roomCode}
-        onChange={(event) => {
-          setRoomCode(event.target.value);
-          if (error) {
-            setError(null);
-          }
-        }}
-        maxLength={6}
-        placeholder="ROOM CODE"
-      />
+      <div className="flex gap-4">
+        <input
+          className="w-full h-15 rounded bg-slate-800 px-5 text-sm uppercase"
+          value={roomCode}
+          onChange={(event) => {
+            setRoomCode(event.target.value);
+            if (error) {
+              setError(null);
+            }
+          }}
+          maxLength={6}
+          placeholder="ROOM CODE"
+        />
+        <button
+          className="rounded bg-blue-600 px-7 py-2 text-sm inline-flex items-center gap-2 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={roomCode.trim().length !== 6 || isLoading}
+        >
+          <span className="text-lg">{isLoading ? 'Joining...' : 'Join'}</span>
+          <i className="fa-solid fa-arrow-right-to-bracket fa-lg" />
+        </button>
+      </div>
       {error ? <p className="text-xs text-rose-300">{error}</p> : null}
-      <button
-        className="rounded bg-blue-600 px-4 py-2 text-sm"
-        disabled={roomCode.trim().length !== 6 || isLoading}
-      >
-        {isLoading ? 'Joining...' : 'Join'}
-      </button>
     </form>
   );
 }

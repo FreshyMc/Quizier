@@ -2,6 +2,9 @@ import { FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { LoadingButton } from '../components/LoadingButton';
 import { useAuth } from '../contexts/AuthContext';
+import { Container } from '@client/components/Container';
+import { Input } from '@client/components/Input';
+import { PasswordInput } from '@client/components/PasswordInput';
 
 export function RegisterPage() {
   const { register } = useAuth();
@@ -27,28 +30,26 @@ export function RegisterPage() {
   };
 
   return (
-    <main className="mx-auto max-w-md px-4 py-16">
+    <Container variant="main" alignment="center">
       <form
-        className="space-y-4 rounded border border-slate-700 bg-slate-900 p-5"
+        className="space-y-4 w-100 rounded border border-slate-700 bg-slate-900 p-5 shadow-lg"
         onSubmit={onSubmit}
       >
         <h1 className="text-xl font-semibold text-white">Register</h1>
-        <input
-          className="w-full rounded bg-slate-800 p-2 text-sm"
+        <Input
+          type="email"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <input
-          className="w-full rounded bg-slate-800 p-2 text-sm"
+        <Input
+          type="text"
           placeholder="Username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
         />
-        <input
-          className="w-full rounded bg-slate-800 p-2 text-sm"
+        <PasswordInput
           placeholder="Password"
-          type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
@@ -64,6 +65,6 @@ export function RegisterPage() {
           Already have an account?
         </Link>
       </form>
-    </main>
+    </Container>
   );
 }
