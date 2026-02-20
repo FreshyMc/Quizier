@@ -66,7 +66,240 @@ const normalizeSubmission = (submission: {
       : undefined,
 });
 
+const normalizeQuestion = (question: {
+  _id?: Types.ObjectId;
+  text: string;
+  options: string[];
+  correctIndex: number;
+  categoryId: Types.ObjectId;
+  difficulty: string;
+  submittedBy: Types.ObjectId;
+  isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}) => ({
+  id: question._id?.toString() ?? '',
+  text: question.text,
+  options: question.options,
+  correctIndex: question.correctIndex,
+  categoryId: question.categoryId.toString(),
+  difficulty: question.difficulty,
+  submittedBy: question.submittedBy.toString(),
+  isActive: question.isActive,
+  createdAt: question.createdAt,
+  updatedAt: question.updatedAt,
+});
+
 const questionRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.get(
+    '/api/admin/categories/:categoryId/questions',
+    { preHandler: [authenticate, authorize([UserRole.ADMIN])] },
+    async (request) => {
+      const { categoryId } = request.params as { categoryId: string };
+      if (!Types.ObjectId.isValid(categoryId)) {
+        throw createHttpError(400, 'Invalid category id');
+      }
+
+      const categoryExists = await CategoryModel.exists({ _id: categoryId });
+      if (!categoryExists) {
+        throw createHttpError(404, 'Category not found');
+      }
+
+      const query = request.query as { page?: string; limit?: string };
+      const page = Math.max(1, Number(query.page ?? 1) || 1);
+      const limit = Math.min(100, Math.max(1, Number(query.limit ?? 50) || 50));
+      const skip = (page - 1) * limit;
+
+      const [total, questions] = await Promise.all([
+        QuestionModel.countDocuments({ categoryId, isActive: true }),
+        QuestionModel.find({ categoryId, isActive: true })
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+      ]);
+
+      return {
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+        questions: questions.map((question) =>
+          normalizeQuestion(
+            question as {
+              _id?: Types.ObjectId;
+              text: string;
+              options: string[];
+              correctIndex: number;
+              categoryId: Types.ObjectId;
+              difficulty: string;
+              submittedBy: Types.ObjectId;
+              isActive: boolean;
+              createdAt?: Date;
+              updatedAt?: Date;
+            },
+          ),
+        ),
+      };
+    },
+  );
+
+  fastify.delete(
+    '/api/admin/categories/:categoryId/questions/:questionId',
+    { preHandler: [authenticate, authorize([UserRole.ADMIN])] },
+    async (request) => {
+      const { categoryId, questionId } = request.params as {
+        categoryId: string;
+        questionId: string;
+      };
+      if (!Types.ObjectId.isValid(categoryId)) {
+        throw createHttpError(400, 'Invalid category id');
+      }
+
+      if (!Types.ObjectId.isValid(questionId)) {
+        throw createHttpError(400, 'Invalid question id');
+      }
+
+      const question = await QuestionModel.findOneAndUpdate(
+        { _id: questionId, categoryId, isActive: true },
+        {
+          $set: {
+            isActive: false,
+          },
+        },
+        { new: true },
+      ).lean();
+
+      if (!question) {
+        throw createHttpError(404, 'Approved question not found');
+      }
+
+      return {
+        question: normalizeQuestion(
+          question as {
+            _id?: Types.ObjectId;
+            text: string;
+            options: string[];
+            correctIndex: number;
+            categoryId: Types.ObjectId;
+            difficulty: string;
+            submittedBy: Types.ObjectId;
+            isActive: boolean;
+            createdAt?: Date;
+            updatedAt?: Date;
+          },
+        ),
+      };
+    },
+  );
+
+  fastify.get(
+    '/api/admin/categories/:categoryId/questions/archived',
+    { preHandler: [authenticate, authorize([UserRole.ADMIN])] },
+    async (request) => {
+      const { categoryId } = request.params as { categoryId: string };
+      if (!Types.ObjectId.isValid(categoryId)) {
+        throw createHttpError(400, 'Invalid category id');
+      }
+
+      const categoryExists = await CategoryModel.exists({ _id: categoryId });
+      if (!categoryExists) {
+        throw createHttpError(404, 'Category not found');
+      }
+
+      const query = request.query as { page?: string; limit?: string };
+      const page = Math.max(1, Number(query.page ?? 1) || 1);
+      const limit = Math.min(100, Math.max(1, Number(query.limit ?? 50) || 50));
+      const skip = (page - 1) * limit;
+
+      const [total, questions] = await Promise.all([
+        QuestionModel.countDocuments({ categoryId, isActive: false }),
+        QuestionModel.find({ categoryId, isActive: false })
+          .sort({ updatedAt: -1, createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+      ]);
+
+      return {
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+        questions: questions.map((question) =>
+          normalizeQuestion(
+            question as {
+              _id?: Types.ObjectId;
+              text: string;
+              options: string[];
+              correctIndex: number;
+              categoryId: Types.ObjectId;
+              difficulty: string;
+              submittedBy: Types.ObjectId;
+              isActive: boolean;
+              createdAt?: Date;
+              updatedAt?: Date;
+            },
+          ),
+        ),
+      };
+    },
+  );
+
+  fastify.patch(
+    '/api/admin/categories/:categoryId/questions/:questionId/restore',
+    { preHandler: [authenticate, authorize([UserRole.ADMIN])] },
+    async (request) => {
+      const { categoryId, questionId } = request.params as {
+        categoryId: string;
+        questionId: string;
+      };
+
+      if (!Types.ObjectId.isValid(categoryId)) {
+        throw createHttpError(400, 'Invalid category id');
+      }
+
+      if (!Types.ObjectId.isValid(questionId)) {
+        throw createHttpError(400, 'Invalid question id');
+      }
+
+      const question = await QuestionModel.findOneAndUpdate(
+        { _id: questionId, categoryId, isActive: false },
+        {
+          $set: {
+            isActive: true,
+          },
+        },
+        { new: true },
+      ).lean();
+
+      if (!question) {
+        throw createHttpError(404, 'Deleted question not found');
+      }
+
+      return {
+        question: normalizeQuestion(
+          question as {
+            _id?: Types.ObjectId;
+            text: string;
+            options: string[];
+            correctIndex: number;
+            categoryId: Types.ObjectId;
+            difficulty: string;
+            submittedBy: Types.ObjectId;
+            isActive: boolean;
+            createdAt?: Date;
+            updatedAt?: Date;
+          },
+        ),
+      };
+    },
+  );
+
   fastify.post('/api/questions/submit', { preHandler: [authenticate] }, async (request) => {
     const parsed = submitQuestionSchema.safeParse(request.body);
     if (!parsed.success) {
