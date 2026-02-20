@@ -61,6 +61,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void refreshUser();
   }, []);
 
+  useEffect(() => {
+    const handler = () => {
+      void (async () => {
+        dispatch({ type: 'AUTH_START' });
+        try {
+          await api.post('/api/auth/logout');
+        } finally {
+          dispatch({ type: 'AUTH_LOGOUT' });
+        }
+      })();
+    };
+
+    window.addEventListener('auth:logout', handler);
+    return () => {
+      window.removeEventListener('auth:logout', handler);
+    };
+  }, []);
+
   const login = async (payload: { email: string; password: string }) => {
     dispatch({ type: 'AUTH_START' });
     const response = await api.post<{ user: User }>('/api/auth/login', payload);

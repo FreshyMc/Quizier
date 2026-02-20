@@ -209,7 +209,7 @@ export function CategoryManager() {
                   <LoadingButton
                     type="submit"
                     disabled={editName.trim().length === 0}
-                    className="inline-flex items-center gap-1 rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    variant="primary"
                     isLoading={updateCategory.isPending}
                     loadingText="Saving..."
                     spinnerClassName="h-3 w-3"
@@ -223,7 +223,7 @@ export function CategoryManager() {
                       setEditName('');
                       setEditDescription('');
                     }}
-                    className="rounded bg-slate-700 px-3 py-1 text-xs text-slate-100 hover:bg-slate-600"
+                    className="rounded bg-slate-700 px-3 py-2 text-base text-slate-100 hover:bg-slate-600 cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -241,7 +241,7 @@ export function CategoryManager() {
                   {tab === 'active' ? (
                     <>
                       <button
-                        className="text-xs text-blue-300 hover:text-blue-200"
+                        className="text-base px-2 text-blue-300 hover:text-blue-200 cursor-pointer"
                         onClick={() => {
                           setEditingCategoryId(category.id);
                           setEditName(category.name);
@@ -252,7 +252,7 @@ export function CategoryManager() {
                         Edit
                       </button>
                       <LoadingButton
-                        className="inline-flex items-center gap-1 text-xs text-red-300 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+                        variant="danger"
                         onClick={() => void removeCategory(category.id)}
                         disabled={archiveCategory.isPending || updateCategory.isPending}
                         isLoading={archiveCategory.isPending}

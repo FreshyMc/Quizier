@@ -1,3 +1,4 @@
+import { LinkButton } from '@client/components/LinkButton';
 import { useAuth } from '../contexts/AuthContext';
 
 export function DashboardPage() {
@@ -6,9 +7,14 @@ export function DashboardPage() {
   return (
     <section className="rounded-lg border border-slate-700 bg-slate-900 p-5">
       <h1 className="text-2xl font-semibold">Welcome, {user?.username}</h1>
-      <p className="mt-2 text-sm text-slate-300">
-        Use the navigation to create/join games and manage content.
-      </p>
+      <div className="mt-4 flex gap-5">
+        <LinkButton to="/game/create" variant="primary">
+          Create new quiz
+        </LinkButton>
+        <LinkButton to="/game/join" variant="secondary">
+          Join existing quiz
+        </LinkButton>
+      </div>
     </section>
   );
 }
