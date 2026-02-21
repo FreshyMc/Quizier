@@ -64,10 +64,10 @@
 
 ### 3. What gas do plants absorb from the atmosphere?
 
-- [ ] A) Oxygen
-- [ ] B) Nitrogen
-- [x] C) Carbon Dioxide
-- [ ] D) Hydrogen
+- [ ] Oxygen
+- [ ] Nitrogen
+- [x] Carbon Dioxide
+- [ ] Hydrogen
 
 ## Category: Geography
 
