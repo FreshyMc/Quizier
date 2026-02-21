@@ -38,6 +38,13 @@
         "command": "tsx scripts/seed-admin.ts",
         "cwd": "packages/server"
       }
+    },
+    "seed-example": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsx scripts/seed-example-quiz.ts",
+        "cwd": "packages/server"
+      }
     }
   },
   "tags": []
