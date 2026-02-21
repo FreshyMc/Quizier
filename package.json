@@ -6,6 +6,7 @@
   "scripts": {
     "nx": "nx",
     "seed:admin": "nx run server:seed",
+    "seed:example": "nx run server:seed-example",
     "format": "prettier --write .",
     "lint": "nx run-many -t lint",
     "test": "nx run-many -t test",
