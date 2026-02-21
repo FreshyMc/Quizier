@@ -2,24 +2,26 @@ import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { api } from '../lib/api';
 import type { GameSessionDto } from '../types/app';
+import { useFormErrors } from '../hooks/useFormErrors';
 
 export function GameJoinPage() {
   const navigate = useNavigate();
   const [roomCode, setRoomCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { fieldErrors, formError, clearErrors, clearFieldError, setFieldError, handleSubmitError } =
+    useFormErrors<'roomCode'>();
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
     const normalizedRoomCode = roomCode.trim().toUpperCase();
     if (!normalizedRoomCode || normalizedRoomCode.length !== 6) {
-      setError('Please enter a valid 6-character room code');
+      setFieldError('roomCode', 'Please enter a valid 6-character room code');
       return;
     }
 
     setIsLoading(true);
-    setError(null);
+    clearErrors();
 
     try {
       const response = await api.get<{ game: GameSessionDto }>(`/api/games/${normalizedRoomCode}`);
@@ -30,7 +32,7 @@ export function GameJoinPage() {
 
       navigate(`/game/${gameId}`);
     } catch (joinError) {
-      setError(joinError instanceof Error ? joinError.message : 'Unable to join game');
+      handleSubmitError(joinError, 'Unable to join game');
     } finally {
       setIsLoading(false);
     }
@@ -48,9 +50,7 @@ export function GameJoinPage() {
           value={roomCode}
           onChange={(event) => {
             setRoomCode(event.target.value);
-            if (error) {
-              setError(null);
-            }
+            clearFieldError('roomCode');
           }}
           maxLength={6}
           placeholder="ROOM CODE"
@@ -63,7 +63,10 @@ export function GameJoinPage() {
           <i className="fa-solid fa-arrow-right-to-bracket fa-lg" />
         </button>
       </div>
-      {error ? <p className="text-xs text-rose-300">{error}</p> : null}
+      {fieldErrors.roomCode ? (
+        <p className="text-xs text-rose-300">{fieldErrors.roomCode}</p>
+      ) : null}
+      {formError ? <p className="text-xs text-rose-300">{formError}</p> : null}
     </form>
   );
 }

@@ -4,6 +4,7 @@ type HttpErrorLike = {
   validation?: unknown;
   code?: number | string;
   name?: string;
+  errors?: Array<Record<string, string>>;
 };
 
 const isHttpStatusCode = (value: unknown): value is number =>
@@ -15,14 +16,35 @@ const isValidationLikeError = (error: HttpErrorLike) =>
   error.name === 'ValidationError' || error.name === 'CastError' || error.validation !== undefined;
 
 export const createHttpError = (statusCode: number, message: string) => {
-  const error = new Error(message) as Error & { statusCode: number };
+  const error = new Error(message) as Error & {
+    statusCode: number;
+    errors?: Array<Record<string, string>>;
+  };
   error.statusCode = statusCode;
+  return error;
+};
+
+export const createHttpValidationError = (
+  statusCode: number,
+  errors: Array<Record<string, string>>,
+  message = 'Validation failed',
+) => {
+  const error = createHttpError(statusCode, message) as Error & {
+    statusCode: number;
+    errors?: Array<Record<string, string>>;
+  };
+  error.errors = errors;
   return error;
 };
 
 export const normalizeHttpError = (
   error: unknown,
-): { statusCode: number; message: string; error: Error } => {
+): {
+  statusCode: number;
+  message: string;
+  error: Error;
+  errors?: Array<Record<string, string>>;
+} => {
   const fallbackError =
     error instanceof Error
       ? error
@@ -42,6 +64,7 @@ export const normalizeHttpError = (
       statusCode: 400,
       message: candidate.message ?? 'Validation failed',
       error: fallbackError,
+      errors: candidate.errors,
     };
   }
 
@@ -52,6 +75,7 @@ export const normalizeHttpError = (
         candidate.message ??
         (candidate.statusCode >= 500 ? 'Internal server error' : 'Request failed'),
       error: fallbackError,
+      errors: candidate.errors,
     };
   }
 

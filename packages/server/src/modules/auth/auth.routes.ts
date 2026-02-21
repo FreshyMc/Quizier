@@ -1,21 +1,16 @@
 import type { FastifyPluginAsync } from 'fastify';
 
 import { loginSchema, registerSchema } from '@quizier/shared';
-import { formatValidationErrorMessage } from '../../utils/validation.js';
+import { createHttpValidationError } from '../../utils/error.js';
+import { formatValidationErrors } from '../../utils/validation.js';
 import { authenticate } from './auth.middleware.js';
 import { authCookieNames, login, logout, me, refresh, register } from './auth.service.js';
-
-const createHttpError = (statusCode: number, message: string) => {
-  const error = new Error(message) as Error & { statusCode: number };
-  error.statusCode = statusCode;
-  return error;
-};
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/register', async (request, reply) => {
     const parsed = registerSchema.safeParse(request.body);
     if (!parsed.success) {
-      throw createHttpError(400, formatValidationErrorMessage(parsed.error));
+      throw createHttpValidationError(400, formatValidationErrors(parsed.error));
     }
 
     return register(fastify, parsed.data, reply);
@@ -24,7 +19,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/login', async (request, reply) => {
     const parsed = loginSchema.safeParse(request.body);
     if (!parsed.success) {
-      throw createHttpError(400, formatValidationErrorMessage(parsed.error));
+      throw createHttpValidationError(400, formatValidationErrors(parsed.error));
     }
 
     return login(fastify, parsed.data, reply);

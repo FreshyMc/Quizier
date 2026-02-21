@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Container } from '@client/components/Container';
 import { Input } from '@client/components/Input';
 import { PasswordInput } from '@client/components/PasswordInput';
+import { useFormErrors } from '@client/hooks/useFormErrors';
 
 export function RegisterPage() {
   const { register } = useAuth();
@@ -12,18 +13,20 @@ export function RegisterPage() {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { fieldErrors, formError, clearErrors, clearFieldError, handleSubmitError } = useFormErrors<
+    'email' | 'username' | 'password'
+  >();
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setError(null);
+    clearErrors();
     setIsSubmitting(true);
     try {
       await register({ email, username, password });
       navigate('/dashboard');
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Unable to register');
+      handleSubmitError(submitError, 'Unable to register');
     } finally {
       setIsSubmitting(false);
     }
@@ -40,20 +43,36 @@ export function RegisterPage() {
           type="email"
           placeholder="Email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            clearFieldError('email');
+          }}
         />
+        {fieldErrors.email ? <p className="text-xs text-rose-300">{fieldErrors.email}</p> : null}
         <Input
           type="text"
           placeholder="Username"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={(e) => {
+            setUsername(e.target.value);
+            clearFieldError('username');
+          }}
         />
+        {fieldErrors.username ? (
+          <p className="text-xs text-rose-300">{fieldErrors.username}</p>
+        ) : null}
         <PasswordInput
           placeholder="Password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            clearFieldError('password');
+          }}
         />
-        {error ? <p className="text-xs text-rose-300">{error}</p> : null}
+        {fieldErrors.password ? (
+          <p className="text-xs text-rose-300">{fieldErrors.password}</p>
+        ) : null}
+        {formError ? <p className="text-xs text-rose-300">{formError}</p> : null}
         <LoadingButton
           className="inline-flex w-full items-center justify-center gap-2 rounded bg-blue-600 p-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           isLoading={isSubmitting}

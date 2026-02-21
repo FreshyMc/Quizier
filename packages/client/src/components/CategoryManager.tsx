@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { LoadingButton } from './LoadingButton';
+import { useFormErrors } from '../hooks/useFormErrors';
 
 type Category = {
   id: string;
@@ -23,6 +24,8 @@ export function CategoryManager() {
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const createErrors = useFormErrors<'name' | 'description'>();
+  const editErrors = useFormErrors<'name' | 'description'>();
 
   const { data, refetch } = useQuery({
     queryKey: ['admin-categories', tab],
@@ -74,10 +77,10 @@ export function CategoryManager() {
   });
 
   const mutationError =
-    createCategory.error?.message ??
-    updateCategory.error?.message ??
     archiveCategory.error?.message ??
-    restoreCategory.error?.message;
+    restoreCategory.error?.message ??
+    createErrors.formError ??
+    editErrors.formError;
 
   const isMutating =
     createCategory.isPending ||
@@ -87,19 +90,33 @@ export function CategoryManager() {
 
   const onCreateSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    void createCategory.mutateAsync({
-      name: name.trim(),
-      description: description.trim(),
-    });
+    createErrors.clearErrors();
+    void (async () => {
+      try {
+        await createCategory.mutateAsync({
+          name: name.trim(),
+          description: description.trim(),
+        });
+      } catch (submitError) {
+        createErrors.handleSubmitError(submitError, 'Unable to create category');
+      }
+    })();
   };
 
   const onEditSubmit = (event: FormEvent<HTMLFormElement>, categoryId: string) => {
     event.preventDefault();
-    void updateCategory.mutateAsync({
-      id: categoryId,
-      name: editName.trim(),
-      description: editDescription.trim(),
-    });
+    editErrors.clearErrors();
+    void (async () => {
+      try {
+        await updateCategory.mutateAsync({
+          id: categoryId,
+          name: editName.trim(),
+          description: editDescription.trim(),
+        });
+      } catch (submitError) {
+        editErrors.handleSubmitError(submitError, 'Unable to update category');
+      }
+    })();
   };
 
   const removeCategory = async (id: string) => {
@@ -130,21 +147,33 @@ export function CategoryManager() {
           <input
             type="text"
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              setName(event.target.value);
+              createErrors.clearFieldError('name');
+            }}
             placeholder="Category name"
             className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none ring-blue-500 focus:ring-2"
             disabled={createCategory.isPending}
             required
             maxLength={80}
           />
+          {createErrors.fieldErrors.name ? (
+            <p className="text-xs text-rose-300">{createErrors.fieldErrors.name}</p>
+          ) : null}
           <textarea
             value={description}
-            onChange={(event) => setDescription(event.target.value)}
+            onChange={(event) => {
+              setDescription(event.target.value);
+              createErrors.clearFieldError('description');
+            }}
             placeholder="Description (optional)"
             className="min-h-20 w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none ring-blue-500 focus:ring-2"
             disabled={createCategory.isPending}
             maxLength={300}
           />
+          {createErrors.fieldErrors.description ? (
+            <p className="text-xs text-rose-300">{createErrors.fieldErrors.description}</p>
+          ) : null}
         </div>
         <LoadingButton
           type="submit"
@@ -194,17 +223,29 @@ export function CategoryManager() {
                 <input
                   type="text"
                   value={editName}
-                  onChange={(event) => setEditName(event.target.value)}
+                  onChange={(event) => {
+                    setEditName(event.target.value);
+                    editErrors.clearFieldError('name');
+                  }}
                   className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none ring-blue-500 focus:ring-2"
                   maxLength={80}
                   required
                 />
+                {editErrors.fieldErrors.name ? (
+                  <p className="text-xs text-rose-300">{editErrors.fieldErrors.name}</p>
+                ) : null}
                 <textarea
                   value={editDescription}
-                  onChange={(event) => setEditDescription(event.target.value)}
+                  onChange={(event) => {
+                    setEditDescription(event.target.value);
+                    editErrors.clearFieldError('description');
+                  }}
                   className="min-h-20 w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none ring-blue-500 focus:ring-2"
                   maxLength={300}
                 />
+                {editErrors.fieldErrors.description ? (
+                  <p className="text-xs text-rose-300">{editErrors.fieldErrors.description}</p>
+                ) : null}
                 <div className="flex items-center gap-2">
                   <LoadingButton
                     type="submit"
@@ -222,6 +263,7 @@ export function CategoryManager() {
                       setEditingCategoryId(null);
                       setEditName('');
                       setEditDescription('');
+                      editErrors.clearErrors();
                     }}
                     className="rounded bg-slate-700 px-3 py-2 text-base text-slate-100 hover:bg-slate-600 cursor-pointer"
                   >
@@ -246,6 +288,7 @@ export function CategoryManager() {
                           setEditingCategoryId(category.id);
                           setEditName(category.name);
                           setEditDescription(category.description ?? '');
+                          editErrors.clearErrors();
                         }}
                         disabled={isMutating}
                       >

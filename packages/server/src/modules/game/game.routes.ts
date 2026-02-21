@@ -6,15 +6,10 @@ import { CategoryModel } from '../../models/category.model.js';
 import { GameSessionModel } from '../../models/game-session.model.js';
 import { PlayerStatsModel } from '../../models/player-stats.model.js';
 import { UserModel } from '../../models/user.model.js';
-import { formatValidationErrorMessage } from '../../utils/validation.js';
+import { createHttpError, createHttpValidationError } from '../../utils/error.js';
+import { formatValidationErrors } from '../../utils/validation.js';
 import { authenticate } from '../auth/auth.middleware.js';
 import { createGameSession, startGameFromRest } from './game.socket.js';
-
-const createHttpError = (statusCode: number, message: string) => {
-  const error = new Error(message) as Error & { statusCode: number };
-  error.statusCode = statusCode;
-  return error;
-};
 
 const findGameSessionByIdentifier = async (identifierInput: string) => {
   const identifier = identifierInput.trim();
@@ -72,7 +67,7 @@ const gameRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/api/games', { preHandler: [authenticate] }, async (request) => {
     const parsed = createGameSchema.safeParse(request.body);
     if (!parsed.success) {
-      throw createHttpError(400, formatValidationErrorMessage(parsed.error));
+      throw createHttpValidationError(400, formatValidationErrors(parsed.error));
     }
 
     for (const categoryId of parsed.data.categories) {
