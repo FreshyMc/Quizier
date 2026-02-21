@@ -7,6 +7,20 @@ const AUTH_LOGOUT_PATH = '/api/auth/logout';
 
 let refreshInFlight: Promise<boolean> | null = null;
 
+export type FieldValidationError = Record<string, string>;
+
+export class ApiError extends Error {
+  statusCode: number;
+  errors?: FieldValidationError[];
+
+  constructor(message: string, statusCode: number, errors?: FieldValidationError[]) {
+    super(message);
+    this.name = 'ApiError';
+    this.statusCode = statusCode;
+    this.errors = errors;
+  }
+}
+
 const notifyAuthLogout = () => {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new Event('auth:logout'));
@@ -41,15 +55,34 @@ async function refreshSession(): Promise<boolean> {
   return refreshInFlight;
 }
 
-async function readErrorMessage(response: Response) {
+async function readErrorPayload(response: Response): Promise<{
+  message: string;
+  errors?: FieldValidationError[];
+}> {
   let message = `Request failed with ${response.status}`;
+  let errors: FieldValidationError[] | undefined;
+
   try {
-    const data = (await response.json()) as { message?: string; error?: string };
+    const data = (await response.json()) as {
+      message?: string;
+      error?: string;
+      errors?: FieldValidationError[];
+    };
     message = data.message ?? data.error ?? message;
+    errors = Array.isArray(data.errors) ? data.errors : undefined;
+
+    if ((!message || message.startsWith('Request failed with')) && errors && errors.length > 0) {
+      const firstError = errors[0] ?? {};
+      const firstMessage = Object.values(firstError)[0];
+      if (firstMessage) {
+        message = firstMessage;
+      }
+    }
   } catch {
     // ignore parse errors
   }
-  return message;
+
+  return { message, errors };
 }
 
 async function doFetch(path: string, init?: RequestInit) {
@@ -79,8 +112,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message);
+    const payload = await readErrorPayload(response);
+    throw new ApiError(payload.message, response.status, payload.errors);
   }
 
   if (response.status === 204) {

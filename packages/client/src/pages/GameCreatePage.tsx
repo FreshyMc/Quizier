@@ -2,6 +2,7 @@ import { FormEvent, use, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { LoadingButton } from '../components/LoadingButton';
 import { useCategories, useCreateGameMutation } from '../hooks/queries';
+import { useFormErrors } from '../hooks/useFormErrors';
 
 const roundsOptions = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12];
 const timeOptions = [15, 30, 45, 60, 90, 120];
@@ -46,13 +47,15 @@ export function GameCreatePage() {
   const [timePerTurn, setTimePerTurn] = useState(30);
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const { fieldErrors, formError, clearErrors, clearFieldError, handleSubmitError } = useFormErrors<
+    'roundsPerPlayer' | 'timePerTurn' | 'maxPlayers' | 'categories'
+  >();
 
   const categories = useMemo(() => data?.categories ?? [], [data]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    setError(null);
+    clearErrors();
     try {
       const response = await createGame.mutateAsync({
         roundsPerPlayer,
@@ -74,7 +77,7 @@ export function GameCreatePage() {
 
       navigate(`/game/${roomCode.trim().toUpperCase()}`);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Unable to create game');
+      handleSubmitError(submitError, 'Unable to create game');
     }
   };
 
@@ -89,25 +92,43 @@ export function GameCreatePage() {
         min={roundsOptions[0]}
         max={roundsOptions[roundsOptions.length - 1]}
         value={roundsPerPlayer}
-        onChange={setRoundsPerPlayer}
+        onChange={(value) => {
+          setRoundsPerPlayer(value);
+          clearFieldError('roundsPerPlayer');
+        }}
         options={roundsOptions}
       />
+      {fieldErrors.roundsPerPlayer ? (
+        <p className="text-xs text-rose-300">{fieldErrors.roundsPerPlayer}</p>
+      ) : null}
       <label className="block text-base mb-2">Time per round (seconds)</label>
       <GameOption
         min={timeOptions[0]}
         max={timeOptions[timeOptions.length - 1]}
         value={timePerTurn}
-        onChange={setTimePerTurn}
+        onChange={(value) => {
+          setTimePerTurn(value);
+          clearFieldError('timePerTurn');
+        }}
         options={timeOptions}
       />
+      {fieldErrors.timePerTurn ? (
+        <p className="text-xs text-rose-300">{fieldErrors.timePerTurn}</p>
+      ) : null}
       <label className="block text-base mb-2">Max players</label>
       <GameOption
         min={maxPlayersOptions[0]}
         max={maxPlayersOptions[maxPlayersOptions.length - 1]}
         value={maxPlayers}
-        onChange={setMaxPlayers}
+        onChange={(value) => {
+          setMaxPlayers(value);
+          clearFieldError('maxPlayers');
+        }}
         options={maxPlayersOptions}
       />
+      {fieldErrors.maxPlayers ? (
+        <p className="text-xs text-rose-300">{fieldErrors.maxPlayers}</p>
+      ) : null}
       <div className="space-y-2 mb-6">
         <p className="text-base">Categories (Multi-select allowed)</p>
         <div className="flex flex-wrap gap-4">
@@ -120,13 +141,14 @@ export function GameCreatePage() {
                   key={category.id}
                   id={category.id}
                   checked={selectedCategories.includes(category.id)}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setSelectedCategories((current) =>
                       e.target.checked
                         ? [...current, category.id]
                         : current.filter((item) => item !== category.id),
-                    )
-                  }
+                    );
+                    clearFieldError('categories');
+                  }}
                 />
                 <div className="flex gap-4 items-center justify-between px-5 py-2 rounded bg-slate-800 peer-checked:bg-blue-600 cursor-pointer">
                   {selectedCategories.includes(category.id) ? (
@@ -141,7 +163,10 @@ export function GameCreatePage() {
           ))}
         </div>
       </div>
-      {error ? <p className="text-xs text-rose-300">{error}</p> : null}
+      {fieldErrors.categories ? (
+        <p className="text-xs text-rose-300">{fieldErrors.categories}</p>
+      ) : null}
+      {formError ? <p className="text-xs text-rose-300">{formError}</p> : null}
       <LoadingButton
         variant="primary"
         modifier="h-12"

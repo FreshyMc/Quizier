@@ -1,5 +1,7 @@
 import type { ZodError } from 'zod';
 
+export type FieldValidationError = Record<string, string>;
+
 const formatPath = (path: ReadonlyArray<PropertyKey>) => {
   if (path.length === 0) {
     return 'body';
@@ -25,4 +27,20 @@ export const formatValidationErrorMessage = (
   }
 
   return `Invalid field "${formatPath(issue.path)}": ${issue.message}`;
+};
+
+export const formatValidationErrors = (
+  error: ZodError,
+  fallbackField = 'body',
+): FieldValidationError[] => {
+  if (error.issues.length === 0) {
+    return [{ [fallbackField]: 'Invalid request body' }];
+  }
+
+  return error.issues.map((issue) => {
+    const fieldName = formatPath(issue.path);
+    return {
+      [fieldName]: issue.message,
+    };
+  });
 };

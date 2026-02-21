@@ -12,14 +12,9 @@ import { CategoryModel } from '../../models/category.model.js';
 import { NotificationModel } from '../../models/notification.model.js';
 import { QuestionSubmissionModel } from '../../models/question-submission.model.js';
 import { QuestionModel } from '../../models/question.model.js';
-import { formatValidationErrorMessage } from '../../utils/validation.js';
+import { createHttpError, createHttpValidationError } from '../../utils/error.js';
+import { formatValidationErrors } from '../../utils/validation.js';
 import { authenticate, authorize } from '../auth/auth.middleware.js';
-
-const createHttpError = (statusCode: number, message: string) => {
-  const error = new Error(message) as Error & { statusCode: number };
-  error.statusCode = statusCode;
-  return error;
-};
 
 const emitNotification = (fastify: FastifyInstance, userId: string, payload: unknown) => {
   fastify.io?.to(`user:${userId}`).emit('notification:new', payload);
@@ -303,7 +298,7 @@ const questionRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/api/questions/submit', { preHandler: [authenticate] }, async (request) => {
     const parsed = submitQuestionSchema.safeParse(request.body);
     if (!parsed.success) {
-      throw createHttpError(400, formatValidationErrorMessage(parsed.error));
+      throw createHttpValidationError(400, formatValidationErrors(parsed.error));
     }
 
     if (!Types.ObjectId.isValid(parsed.data.categoryId)) {
@@ -476,7 +471,7 @@ const questionRoutes: FastifyPluginAsync = async (fastify) => {
 
       const parsed = rejectSubmissionSchema.safeParse(request.body);
       if (!parsed.success) {
-        throw createHttpError(400, formatValidationErrorMessage(parsed.error));
+        throw createHttpValidationError(400, formatValidationErrors(parsed.error));
       }
 
       const submission = await QuestionSubmissionModel.findById(submissionId);

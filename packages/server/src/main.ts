@@ -82,6 +82,11 @@ app.setErrorHandler((error, request, reply) => {
     return;
   }
 
+  if (normalized.errors && normalized.errors.length > 0) {
+    reply.status(normalized.statusCode).send({ errors: normalized.errors });
+    return;
+  }
+
   reply.status(normalized.statusCode).send({ message: normalized.message });
 });
 
